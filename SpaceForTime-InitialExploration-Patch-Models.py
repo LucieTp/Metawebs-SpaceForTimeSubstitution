@@ -187,27 +187,49 @@ res9_init = res9_init.merge(coords9P, left_on = ['sim', 'patch','quality_ratio']
 
 
 #%%% mean trophic level 
-fig, ([ax1, ax2]) = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(6, 6))
-sb.boxplot(data = FW9[np.in1d(FW9['patch'],[0,1,3])], y = 'MeanTL_local', x = 'quality_ratio', order = [1.0, 0.5, 0.3], ax = ax1)
+
+## showing the mean trophic level before and after disturbance in disturbed 
+## although really here there the simulations are independant
+
+FW9['quality_ratio_labels'] = FW9['quality_ratio']
+FW9['quality_ratio_labels'] = FW9['quality_ratio_labels'].map({1.0: 'Homogeneous', 0.5: 'Intermediate heterogeneity', 0.3: 'Max heterogeneity'})
+
+FW9['deltaR_labels'] = FW9['deltaR']
+FW9['deltaR_labels'] = FW9['deltaR_labels'].map({1.0: 'High quality patch', 0.5: 'Low quality patch'})
+
+
+res9['quality_ratio_labels'] = res9['quality_ratio']
+res9['quality_ratio_labels'] = res9['quality_ratio_labels'].map({1.0: 'Homogeneous', 0.5: 'Intermediate heterogeneity', 0.3: 'Max heterogeneity'})
+
+res9['deltaR_labels'] = res9['deltaR']
+res9['deltaR_labels'] = res9['deltaR_labels'].map({1.0: 'High quality patch', 0.5: 'Low quality patch'})
+
+
+fig, ([ax1, ax2]) = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(6, 6))
+sb.boxplot(data = FW9[np.in1d(FW9['patch'],[0,1,3])], y = 'MeanTL_local', x = 'quality_ratio_labels', ax = ax1)
+ax1.tick_params(axis='x', rotation=45)
 ax1.set_title('Before/after')
 
-sb.boxplot(data = FW9[FW9['quality_ratio'] == 0.5], y = 'MeanTL_local', x = 'deltaR', ax = ax2)
+## showing the mean trophic level inside and outside higher quality patches
+sb.boxplot(data = FW9[FW9['quality_ratio'] == 0.5], y = 'MeanTL_local', x = 'deltaR_labels', ax = ax2)
 ax2.set_title('inside/outside')
+ax2.tick_params(axis='x', rotation=45)
 
 # plt.savefig('D:/TheseSwansea/SFT/Figures/MeanTL_InitialDynamics-local-3P-10P.png', dpi = 400, bbox_inches = 'tight')
 
 
 #%%% mean biomass
 
-fig, ([ax1, ax2]) = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(6, 6))
+fig, ([ax1, ax2]) = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(6, 6))
 ax1.set_yscale('log')
-sb.boxplot(data = res9[np.in1d(res9['patch'],[0,1,3])], y = 'B_final', x = 'quality_ratio', order = [1.0, 0.5, 0.3], ax = ax1)
+sb.boxplot(data = res9[np.in1d(res9['patch'],[0,1,3])], y = 'B_final', x = 'quality_ratio_labels', ax = ax1)
 ax1.set_title('Before/after')
+ax1.tick_params(axis='x', rotation=45)
 
 ax2.set_yscale('log')
-sb.boxplot(data = res9[res9['quality_ratio'] == 0.5], y = 'B_final', x = 'deltaR', ax = ax2)
+sb.boxplot(data = res9[res9['quality_ratio'] == 0.5], y = 'B_final', x = 'deltaR_labels', ax = ax2)
 ax2.set_title('inside/outside')
-
+ax2.tick_params(axis='x', rotation=45)
 # plt.savefig('D:/TheseSwansea/SFT/Figures/MeanTL_InitialDynamics-local-3P-10P.png', dpi = 400, bbox_inches = 'tight')
 
 #%%% mean connectance
