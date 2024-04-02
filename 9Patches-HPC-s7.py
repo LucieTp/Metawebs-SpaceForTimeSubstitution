@@ -11,7 +11,14 @@ Created on Tue Sep 26 10:08:31 2023
 ## 1 - No protected area O - O - O
 ## 2 - One protected area in the middle O - (O) - O
 
-import pandas as pd
+import pandas as pd 
+## pandas needs to be version 1.5.1 to read the npy pickled files with np.load() 
+## created under this version 
+## this can be checked using pd.__version__ and version 1.5.1 can be installed using
+## pip install pandas==1.5.1 (how I did it on SLURM - 26/03/2024)
+## if version 2.0 or over yields a module error ModuleNotFoundError: No module named 'pandas.core.indexes.numeric'
+## I think to solve this, would need to run the code and save files under version > 2.0 of pandas
+## or manually create this pandas.core.index.numerical function see issue in https://github.com/pandas-dev/pandas/issues/53300
 
 from scipy.integrate import odeint, solve_ivp # Numerical integration function from the scientific programming package
 
@@ -26,6 +33,8 @@ import networkx as nx
 import igraph as ig
 
 from argparse import ArgumentParser # for parallel runnning on Slurm
+
+import pickle
 
 
 ### this function implements the niche model by Williams and Martinez (2000) 
@@ -488,10 +497,10 @@ from csv import writer
 import time
 
 
-def TwoPatchesPredationBS_ivp_Kernel(y0,q,P,S,FW,d,deltaR,harvesting,tfinal,tinit,s,troubleshooting=False,extinct = 1e-14):
+def TwoPatchesPredationBS_ivp_Kernel(y0,q,P,S,FW,d,deltaR,harvesting,tfinal,tinit,s,extinct = 1e-14):
         
     # create an extinction event:
-    def extinction(t,y,q,P,S,FW,d,deltaR,harvesting,s,troubleshooting):
+    def extinction(t,y,q,P,S,FW,d,deltaR,harvesting,s):
         
         # extinction
         if ((y <= extinct) & (y != 0)).any():
@@ -499,7 +508,7 @@ def TwoPatchesPredationBS_ivp_Kernel(y0,q,P,S,FW,d,deltaR,harvesting,tfinal,tini
             index = np.where(((y <= extinct) & (y != 0)))
             print(y[index])
             print(index)
-            np.savetxt(f"/lustrehome/home/s.lucie.thompson/Metacom/Sp_extinct_event_{s}.csv",index)
+            np.savetxt(f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Sp_extinct_event_{s}.csv",index)
             
             return 0 ## will terminate the ode solver
         
@@ -511,7 +520,7 @@ def TwoPatchesPredationBS_ivp_Kernel(y0,q,P,S,FW,d,deltaR,harvesting,tfinal,tini
     # extinction.direction = -1 # only species going down will trigger event, so invading species can invade
         
     
-    def System(t,y,q,P,S,FW,d,deltaR,harvesting,s,troubleshooting): # Function defining the system of differential equations
+    def System(t,y,q,P,S,FW,d,deltaR,harvesting,s): # Function defining the system of differential equations
         
         a = FW['a'] # attack rate
         ht = FW['h'] # handling time
@@ -582,13 +591,7 @@ def TwoPatchesPredationBS_ivp_Kernel(y0,q,P,S,FW,d,deltaR,harvesting,tfinal,tini
             
             # growth rate*logistic growth (>0 for plants only) - metabolic losses + predation gains (>0 for animals only) - predation losses + dispersal
             dNp = N*(r[p]*deltaR[p]*(1 - N/K) - x - harvesting[p]) + predationGains - predationLosses + immigration + emigration
-            
-            if troubleshooting:
-                if p == 1:
-                    file = open("D:/TheseSwansea/PatchModels/outputs/3Patches/Save133.csv","a")
-                    writer_object = writer(file)
-                    writer_object.writerow([t,N[33], dNp[33],predationGains[33], predationLosses[33], immigration[33], emigration[33]])
-                    file.close()
+
                     
             # print(dNp)
             dNp[(N + dNp) < extinct] = 0 
@@ -600,7 +603,7 @@ def TwoPatchesPredationBS_ivp_Kernel(y0,q,P,S,FW,d,deltaR,harvesting,tfinal,tini
     # choose the start and end time
     t_span = (tinit,tfinal)
     # run solver
-    return solve_ivp(fun = System, t_span = t_span, y0 = y0, args=(q,P,S,FW,d,deltaR,harvesting,s,troubleshooting), 
+    return solve_ivp(fun = System, t_span = t_span, y0 = y0, args=(q,P,S,FW,d,deltaR,harvesting,s), 
                      method='LSODA', rtol = 1e-8, atol = 1e-8, events = extinction, t_eval = np.arange(tinit,tfinal,60*60*24*31)) # choose when extinctions and dispersal will be evaluated
     ### END FUNCTION
 
@@ -667,21 +670,20 @@ def run_dynamics(y0,tinit,runtime,q,P,Stot,FW,disp,deltaR,harvesting,patch,sp,di
                 ## biomasses over those 10% time steps
                 Bsub = solY[index]
                 
-                # save mean biomass per species across the time window i
+                # save mean biomass per species across time
                 mean_df[ind,:] = Bsub.mean(axis=0)
                 ind+=1 # increment index
                 
             # calculate coefficient of variation of each species's mean biomass 
-            # across the 5 time windows (final 25% of the simulation)
-            cv = mean_df[~np.isnan(mean_df.sum(axis = 1)),:].std(axis=0)/mean_df[~np.isnan(mean_df.sum(axis = 1)),:].mean(axis=0)
+            # across 25% of the simulation 
             cv = mean_df.std(axis=0)/mean_df.mean(axis=0)
-
-            if (len(cv[~np.isnan(cv)]) > 0 and cv[~np.isnan(cv)] < 1e-2).all() : # if all the coefficient of variation are small enough we stop the simulation
+           
+            if (cv[~np.isnan(cv)] < 1e-2).all() : # if all the coefficient of variation are small enough we stop the simulation
                 print('Stabilised')
                 stabilised = True
                 
-                plt.plot(mean_df)
-                plt.savefig('/lustrehome/home/s.lucie.thompson/Metacom/Figures/stabilisation.png', dpi = 400, bbox_inches = 'tight')
+                # plt.plot(mean_df)
+                # plt.savefig('/lustrehome/home/s.lucie.thompson/Metacom/Figures/stabilisation.png', dpi = 400, bbox_inches = 'tight')
         
                 break
                 
@@ -701,8 +703,8 @@ def run_dynamics(y0,tinit,runtime,q,P,Stot,FW,disp,deltaR,harvesting,patch,sp,di
         if ((status == 1) and (not stabilised)):
             
             # get ID of species that went extinct and are to be set to zero Biomass
-            ID = np.loadtxt(f"/lustrehome/home/s.lucie.thompson/Metacom/SFT/Sp_extinct_event_{s}.csv")
-            np.savetxt(f"/lustrehome/home/s.lucie.thompson/Metacom/SFT/Sp_extinct_event_{s}.csv",[]) # erase information from file
+            ID = np.loadtxt(f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Sp_extinct_event_{s}.csv")
+            np.savetxt(f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Sp_extinct_event_{s}.csv",[]) # erase information from file
     
             ID = ID.astype(int)
             print(ID)
@@ -727,18 +729,18 @@ def run_dynamics(y0,tinit,runtime,q,P,Stot,FW,disp,deltaR,harvesting,patch,sp,di
     
             ## save results
             sol_save_temp.update({'FW_new':FW, 'type':ty, "sim":s,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'q':q})
-            np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/temp_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_save_temp, allow_pickle = True)
+            np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/{ty}/sim{s}/temp_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_save_temp, allow_pickle = True)
         
         ## simulation is taking too long we stop it - save it as a seperate file 
         ## need to investigate what is going on 
-        # if time.time() - start > 60*60*12:
-        #     print(f'Took more than 12 hours - skipping {patch}, sp {sp}, {ty}')
+        if time.time() - start > 60*60*12:
+            print(f'Took more than 12 hours - skipping {patch}, sp {sp}, {ty}')
             
-        #     ## save results
-        #     sol_save_temp.update({'FW_new':FW, 'type':ty, "sim":s,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'q':q})
-        #     np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot100_C{int(C*100)}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_save_temp, allow_pickle = True)
+            ## save results
+            sol_save_temp.update({'FW_new':FW, 'type':ty, "sim":s,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'q':q})
+            np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/{ty}/sim{s}/NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot100_C{int(C*100)}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_save_temp, allow_pickle = True)
 
-        #     return 'Did not stabilise after 12 hours'
+            return 'Did not stabilise after 12 hours'
         
     return sol_save
 
@@ -802,149 +804,547 @@ def reduce_FW(FW, y0, P, disp):
 
 
 # %% initial run homogeneous
-
-### testing 3 different number of patches on same landscape size
-### could maybe do the same on different landscape sizes and see what happens
-
 f = "/lustrehome/home/s.lucie.thompson/Metacom/Init_test/StableFoodWebs_55persist_Stot100_C10_t10000000000000.npy"
 stableFW = np.load(f, allow_pickle=True).item()
 
 
 Stot = 100 # initial pool of species
+P = 15 # number of patches
 C = 0.1 # connectance
 tmax = 10**12 # number of time steps
 
-## test different landscape sizes
-for P in [9]:
+# FW = nicheNetwork(Stot, C)
 
-    # FW = nicheNetwork(Stot, C)
+# S = np.repeat(Stot,P) # local pool sizes (all patches are full for now)
+S = np.repeat(round(Stot*1/3),P) # initiate with 50 patches
+
+# parser = ArgumentParser()
+# parser.add_argument('SimNb')
+# args = parser.parse_args()
+# s = int(args.SimNb)
+# print(args, s, flush=True)
+
+s = 7
+
+import os 
+
+## create file to load extinction events
+path = f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Sp_extinct_event_{s}.csv"
+if not os.path.exists(path):
+    file = open(f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Sp_extinct_event_{s}.csv","x") # create a file
+    file.close()
     
-    # S = np.repeat(Stot,P) # local pool sizes (all patches are full for now)
-    S = np.repeat(round(Stot*1/3),P) # initiate with 50 patches
     
-    # parser = ArgumentParser()
-    # parser.add_argument('SimNb')
-    # args = parser.parse_args()
-    # s = int(args.SimNb)
-    # print(args, s, flush=True)
+print('simulation',s, flush=True)
+
+k = [k for k in stableFW.keys()]
+k = k[s]
+FW = stableFW[k]
+
+## create three patches distant enough that all species can't cross all the way through
+extentx = [0,0.4]
+coords = pd.DataFrame()
+for i in range(P):
+    np.random.seed(i)
+    coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':[np.random.uniform(extentx[0], extentx[1])],
+                              'y':[np.random.uniform(extentx[0], extentx[1])]})))
+
+
+plt.scatter(coords['x'], coords['y'], c = coords['Patch'])
+plt.colorbar()
+
+FW = getSimParams(FW, S, P, coords)
+
+## calculate distance between patches
+dist = np.zeros((P,P))
+
+for p1 in range(P): 
+    for p2 in range(P):
+        dist[p1,p2] = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
+
+np.median(dist) ## should be close to np.median(FW['dmax'])
+
+plt.xscale("log")
+plt.scatter(FW["BS"], FW["dmax"])
+plt.ylabel("dispersal distance")
+plt.xlabel("Logged body size")
+plt.show()
+
+# dispersal rate
+d = 1e-8
+disp = np.repeat(d, Stot*P).reshape(P,Stot)
+
+q = 0.1 # hill exponent - type II functionnal response (chosen following Ryser et al 2021)
+
+#### (1) Homogeneous landscape
+deltaR = np.repeat(0.5,P)
+
+Stot_new, FW_new, disp_new = reduce_FW(FW, FW['y0'], P, disp)
+# no havresting for the 'warm up' period
+harvesting = np.zeros(shape = (P, Stot_new))
+
+#### run the initial transtional state for the food web (no disturbance yet)
+
+import os
+
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy'
+if not os.path.exists(path):
+
+    print('Homogeneous - initial run',s)
     
-    s = 7
+    start = time.time()    
+    sol_homogeneous = run_dynamics(FW_new['y0'].reshape(Stot_new*P,),0,tmax,q,P,Stot_new,FW_new,disp_new,deltaR,harvesting,-1,-1,0,s)
+    stop = time.time() 
+    sim_duration = stop - start
+    print(sim_duration)
     
-    import os 
-    
-    ## create file to load extinction events
-    path = f"/lustrehome/home/s.lucie.thompson/Metacom/SFT/Sp_extinct_event_{s}.csv"
-    if not os.path.exists(path):
-        file = open(f"/lustrehome/home/s.lucie.thompson/Metacom/SFT/Sp_extinct_event_{s}.csv","x") # create a file
-        file.close()
+    Bf_homogeneous = np.zeros(shape = (P,Stot_new))
+    res_sim_homogeneous = pd.DataFrame()
+    for patch in range(P):
         
+        p_index = patch + 1
         
-    print('simulation',s, flush=True)
-    
-    k = [k for k in stableFW.keys()]
-    k = k[s]
-    FW = stableFW[k]
-    
-    ## create landscape 
-    extentx = [0,0.4]
-    coords = pd.DataFrame()
-    for i in range(P):
-        np.random.seed(i)
-        coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':[np.random.uniform(extentx[0], extentx[1])],
-                                  'y':[np.random.uniform(extentx[0], extentx[1])]})))
-    
-    
-    plt.scatter(coords['x'], coords['y'], c = coords['Patch'])
-    plt.colorbar()
-    
-    FW = getSimParams(FW, S, P, coords)
-    
-    ## calculate distance between patches
-    dist = np.zeros((P,P))
-    
-    for p1 in range(P): 
-        for p2 in range(P):
-            dist[p1,p2] = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
-    
-    np.median(dist) ## should be close to np.median(FW['dmax'])
-    
-    plt.xscale("log")
-    plt.scatter(FW["BS"], FW["dmax"])
-    plt.ylabel("dispersal distance")
-    plt.xlabel("Logged body size")
-    plt.show()
-    
-    # dispersal rate
-    d = 1e-8
-    disp = np.repeat(d, Stot*P).reshape(P,Stot)
-    
-    q = 0.1 # hill exponent - type II functionnal response (chosen following Ryser et al 2021)
-    
-    #### (1) Homogeneous landscape
-    deltaR = np.repeat(0.5,P)
-    
-    Stot_new, FW_new, disp_new = reduce_FW(FW, FW['y0'], P, disp)
-    # no havresting for the 'warm up' period
-    harvesting = np.zeros(shape = (P, Stot_new))
-    
-    #### run the initial transtional state for the food web (no disturbance yet)
-    
-    import os
-    
-    path = f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/ResultsInitial_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv'
-    if not os.path.exists(path):
-    
-        print('Homogeneous - initial run',s)
+        # sol_ivp_k1["y"][sol_ivp_k1["y"]<1e-20] = 0         
+        solT = sol_homogeneous['t']
+        solY = sol_homogeneous['y']
+        ind = patch + 1
         
-        start = time.time()    
-        sol_homogeneous = run_dynamics(FW_new['y0'].reshape(Stot_new*P,),0,tmax,q,P,Stot_new,FW_new,disp_new,deltaR,harvesting,-1,-1,0,s,False)
-        stop = time.time()   
-        print(stop - start)
+        Bf_homogeneous[patch] = solY[-1,range(Stot_new*ind-Stot_new,Stot_new*ind)]
         
-        Bf_homogeneous = np.zeros(shape = (P,Stot_new))
-        res_sim_homogeneous = pd.DataFrame()
-        for patch in range(P):
+        res_sim_homogeneous = pd.concat([res_sim_homogeneous, pd.DataFrame({
+            # record all the characterstics of the simulation
+            'sim':s,'tmax':tmax,'d':d,'Stot':Stot, 'Stot_realised':Stot_new,
+            'p':patch,'P':P, 'type':'homogeneous',
+            'deltaR':deltaR[patch],
             
-            p_index = patch + 1
+            # record population dynamics summary
+            'SpBiomassMean':Bf_homogeneous[patch], 
+            'Sfinal':sum(Bf_homogeneous[patch]>0), # number of persistent species
+            'Persistence':sum(Bf_homogeneous[patch]>0)/Stot # proportion of persistent species
+            })])
+        
+            # plot pop dynamics for all species
+    #     plt.subplot(1,3, ind)
+    #     plt.tight_layout()
+        
+    #     plt.loglog(solT[np.arange(0,solT.shape[0],10)], 
+    #                solY[np.ix_(np.arange(0,solT.shape[0],10),range(Stot_new*ind-Stot_new,Stot_new*ind))])
+    # plt.title("Homogeneous")
+    # plt.show()
             
-            # sol_ivp_k1["y"][sol_ivp_k1["y"]<1e-20] = 0         
-            solT = sol_homogeneous['t']
-            solY = sol_homogeneous['y']
-            ind = patch + 1
+    print('shape raw',sol_homogeneous['y'].shape)
+    print('shape subset 10%',sol_homogeneous['y'][np.arange(0,sol_homogeneous['y'].shape[0],10),:].shape)
+    
+    # sol_homogeneous['y'] = sol_homogeneous['y'][np.arange(0,sol_homogeneous['y'].shape[0],10),:]
+    # sol_homogeneous['t'] = sol_homogeneous['t'][np.arange(0,sol_homogeneous['t'].shape[0],10)]
+
+    ## save results
+    sol_homogeneous.update({'FW_new':FW_new, 'type':'homogeneous', 'FW':FW, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,
+                            'tstart':0, 'tmax':tmax,'q':q, 'sim_duration':sim_duration})
+    
+    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl', 'wb') as f:  # open a text file
+        pickle.dump(sol_homogeneous, f, protocol=4) # serialize the list
+    f.close()
+    
+    # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_homogeneous, allow_pickle = True)
+    res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/ResultsInitial_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
+
+else:
+    
+    sol_homogeneous = np.load(path, allow_pickle = True).item()
+    
+    Bf_homogeneous = np.zeros(shape = (P,Stot_new))
+    for patch in range(P):
+        
+        p_index = patch + 1
+        
+        # sol_ivp_k1["y"][sol_ivp_k1["y"]<1e-20] = 0         
+        solT = sol_homogeneous['t']
+        solY = sol_homogeneous['y']
+        ind = patch + 1
+        
+        Bf_homogeneous[patch] = solY[-1,range(Stot_new*ind-Stot_new,Stot_new*ind)]
+        
+    ###############################################################################
+
+# # %% disturbance homogeneous
+    
+#     ### Apply disturbance:
+    
+
+# Bf_homogeneous_disturbed = Bf_homogeneous.copy()
+# tstart = sol_homogeneous["t"][-1].copy()
+# tinit = tstart.copy()
+# runtime = 1e11
+# disturbance = 5e-6
+# ty = 'Homogeneous'
+
+# print('Homogeneous - disturbance',s, flush=True)
+
+
+
+# # Get reduced space
+# Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new = reduce_FW(FW_new, Bf_homogeneous_disturbed, P, disp_new)
+
+# patch = 7
+# res_sim_sp_homogeneous = pd.DataFrame()
+
+# path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-DisturbedPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
+# if not os.path.exists(path):
+#     print('Control')
+    
+#     # check if the species isn't extinct
+#     y0 = FW_homogeneous_new['y0'].reshape(P*Stot_homogeneous_new)
+    
+    
+#     harvesting = np.zeros(shape = (P, Stot_homogeneous_new))
+        
+#     start = time.time()   
+#     sol_homogeneous_disturbed = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new, deltaR, harvesting, -1,-1,0, s)
+#     stop = time.time()   
+#     print(stop - start)
+        
+#     sol_homogeneous_disturbed.update({'FW':FW, 'type':'homogeneous', 'FW_new':FW_homogeneous_new,'Stot_new':Stot_homogeneous_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
+#                   'tstart':tstart, 'runtime':runtime,'q':q})
+#     np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-DisturbedPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_homogeneous_disturbed, allow_pickle = True)
+
+
+# for patch in [patch]:
+#     for sp in range(Stot_homogeneous_new):
             
-            Bf_homogeneous[patch] = solY[-1,range(Stot_new*ind-Stot_new,Stot_new*ind)]
+#         path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/DisturbedP{patch}PopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy'
+#         path_notStabilised = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_disturbance{disturbance}_{sp}SpDisturbed.npy'
+
+#         if not os.path.exists(path) and not os.path.exists(path_notStabilised):
             
-            res_sim_homogeneous = pd.concat([res_sim_homogeneous, pd.DataFrame({
-                # record all the characterstics of the simulation
-                'sim':s,'tmax':tmax,'d':d,'Stot':Stot, 'Stot_realised':Stot_new,
-                'p':patch,'P':P, 'type':'homogeneous',
-                'deltaR':deltaR[patch],
+#             print('species disturbed:', sp, flush=True)
+            
+#             # check if the species isn't extinct
+#             y0 = FW_homogeneous_new['y0'].reshape(P*Stot_homogeneous_new)
+            
+#             if (y0[sp + patch*Stot_homogeneous_new] == 0): 
+#                 continue
+#             else:
+#                 print("patch", patch, "sp", sp, flush=True)
+#                 harvesting = np.zeros(shape = (P, Stot_homogeneous_new))
+#                 harvesting[patch][sp] = disturbance
+#                 # c = np.zeros(shape = (P, Stot))
+#                 # c[patch][sp] = 0.25
                 
-                # record population dynamics summary
-                'SpBiomassMean':Bf_homogeneous[patch], 
-                'Sfinal':sum(Bf_homogeneous[patch]>0), # number of persistent species
-                'Persistence':sum(Bf_homogeneous[patch]>0)/Stot # proportion of persistent species
-                })])
+#             # run dynamics from equilibrium Bf_disturbed
+#             # Bf_disturbed = Bf_disturbed.reshape(P*Stot_new,)
             
-                # plot pop dynamics for all species
-        #     plt.subplot(1,3, ind)
-        #     plt.tight_layout()
-            
-        #     plt.loglog(solT[np.arange(0,solT.shape[0],10)], 
-        #                solY[np.ix_(np.arange(0,solT.shape[0],10),range(Stot_new*ind-Stot_new,Stot_new*ind))])
-        # plt.title("Homogeneous")
-        # plt.show()
+#             start = time.time()   
+#             sol_homogeneous_disturbed = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new, deltaR, harvesting, patch, sp, disturbance, s)
+#             stop = time.time()   
+#             print(stop - start)
                 
-        print('shape raw',sol_homogeneous['y'].shape)
-        print('shape subset 10%',sol_homogeneous['y'][np.arange(0,sol_homogeneous['y'].shape[0],10),:].shape)
+#             if sol_homogeneous_disturbed != 'Did not stabilise after 12 hours':
+            
+#                 sol_homogeneous_disturbed.update({'FW':FW, 'type':'homogeneous', 'FW_new':FW_homogeneous_new,'Stot_new':Stot_homogeneous_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
+#                               'tstart':tstart, 'runtime':runtime,'q':q})
+#                 np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/DisturbedP{patch}PopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_homogeneous_disturbed, allow_pickle = True)
         
-        # sol_homogeneous['y'] = sol_homogeneous['y'][np.arange(0,sol_homogeneous['y'].shape[0],10),:]
-        # sol_homogeneous['t'] = sol_homogeneous['t'][np.arange(0,sol_homogeneous['t'].shape[0],10)]
+#                 # save final biomass density after perturbation and plot dynamics
+                
+#                 Bf1 = np.zeros(shape = (P,Stot_homogeneous_new))
+#                 for p in range(P):
+                    
+#                     p_index = patch + 1
+                             
+#                     solT = sol_homogeneous_disturbed['t']
+#                     solY = sol_homogeneous_disturbed['y']
+#                     ind = p + 1
+                    
+#                     Bf1[p] = solY[-1,range(Stot_homogeneous_new*ind-Stot_homogeneous_new,Stot_homogeneous_new*ind)]
+                    
+#                     # plot pop dynamics for all species
+#                 #     plt.subplot(1, 3, ind)
+#                 #     plt.tight_layout()
+                    
+#                 #     plt.loglog(solT[np.arange(0,solT.shape[0],10)], 
+#                 #                solY[np.ix_(np.arange(0,solT.shape[0],10),range(Stot_homogeneous_new*ind-Stot_homogeneous_new,Stot_homogeneous_new*ind))])
+#                 #     plt.loglog(solT[np.arange(0,solT.shape[0],10)], 
+#                 #                solY[np.arange(0,solT.shape[0],10),sp+ Stot_homogeneous_new*(ind-1)], linestyle="dotted")
+                    
+#                 # plt.title("With events")
+#                 # plt.show()
+                
+                
+#                 extinct2 = np.repeat(False,Stot_homogeneous_new)
+#                 if ((FW_homogeneous_new['y0'] > 0) & (Bf1 == 0)).any():
+#                     for j in range(P):
+#                         extinct2 = extinct2 | (FW_homogeneous_new['y0'][j] > 0) & (Bf1[j] == 0) 
+                
+#                 res_sim_sp_homogeneous = pd.concat([res_sim_sp_homogeneous, pd.DataFrame({
+#                     # record all the characterstics of the simulation
+#                     'sim':s,'tmax':tmax,'d':d,'Stot':Stot,'Stot_new':Stot_homogeneous_new,'P':P,
+#                     'patch_disturbed':patch, "sp_disturbed":sp,
+#                     'type':'homogeneous',
+#                     'sp_ID':np.tile(FW_homogeneous_new['sp_ID'],P),
+#                     'sp_ID_':np.tile(FW_homogeneous_new['sp_ID_'],P),
+#                     "TL_disturbed":FW_homogeneous_new["TL"][sp],
+#                     "TP_disturbed":FW_homogeneous_new["TP"][sp],
+#                     'disturbance':disturbance,
+#                     'nb_extinct':sum(extinct2),
+#                     'patch':np.repeat(coords['Patch'],Stot_homogeneous_new),
+#                     'x':np.repeat(coords['x'],Stot_homogeneous_new),
+#                     'y':np.repeat(coords['y'],Stot_homogeneous_new),
+#                     'deltaR':np.repeat(deltaR,Stot_homogeneous_new),
+#                     "harvesting":harvesting.reshape(Stot_homogeneous_new*P),    
+#                     # record population dynamics summary
+#                     'B_final':Bf1.reshape(Stot_homogeneous_new*P),
+#                     "B_init":y0
+#                     })])
+        
+        
+#                 res_sim_sp_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/ResultsDisturbed_sim{s}_{P}Patches_{Stot}sp_{C}C_Homogeneous.csv')
+        
+        
+
+
+
+# ###############################################################################
+# ###############################################################################
+# ### HETEROGENEOUS
+# ###############################################################################
+# ###############################################################################
+
+
+# # %% initial run heterogeneous
+
+
+# ## create file to load extinction events
+# path = f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Sp_extinct_event_{s}.csv"
+# if not os.path.exists(path):
+#     file = open(f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Sp_extinct_event_{s}.csv","x") # create a file
+#     file.close()
     
-        ## save results
-        sol_homogeneous.update({'FW_new':FW_new, 'runtime':stop - start,'P':P, 'type':'homogeneous', 'FW':FW, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,
-                                'tstart':0, 'tmax':tmax,'q':q})
-        np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_homogeneous, allow_pickle = True)
-        res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/ResultsInitial_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
     
     
+# deltaR = np.repeat(0.5,P)
+# print('deltaR',deltaR, ' -- ', deltaR[[0,1,3]])
+# deltaR[[0,1,3]] = 1
+# # plt.scatter(coords['x'], coords['y'], c = deltaR)
+
+# # for deltaR in deltaR: # if want to do different ratios
+
+# ratio = np.min(deltaR)/np.max(deltaR)
+# Stot_new, FW_new, disp_new = reduce_FW(FW, FW['y0'], P, disp)
+
+# harvesting = np.zeros(shape = (P, Stot_new))
+
+# path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/InitialPopDynamics_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy'
+# if not os.path.exists(path):
+
+#     print('Heterogeneous - initial run',s, flush=True)
+
+    
+#     start = time.time()    
+#     sol_heterogeneous = run_dynamics(FW_new['y0'].reshape(Stot_new*P),0,tmax,q,P,Stot_new,FW_new,disp_new,deltaR,harvesting,-1,-1,0,s,False)
+#     stop = time.time()   
+#     print(stop - start)
+    
+    
+#     Bf_heterogeneous = np.zeros(shape = (P,Stot_new))
+#     res_sim_heterogeneous = pd.DataFrame()
+#     for patch in range(P):
+        
+#         p_index = patch + 1
+        
+#         # sol_ivp_k1["y"][sol_ivp_k1["y"]<1e-20] = 0         
+#         solT = sol_heterogeneous['t']
+#         solY = sol_heterogeneous['y']
+#         ind = patch + 1
+        
+#         Bf_heterogeneous[patch] = solY[-1,range(Stot_new*ind-Stot_new,Stot_new*ind)]
+        
+#         res_sim_heterogeneous = pd.concat([res_sim_heterogeneous, pd.DataFrame({
+#             # record all the characterstics of the simulation
+#             'sim':s,'tmax':tmax,'d':d,'Stot':Stot, 'Stot_realised':Stot_new,
+#             'p':patch,'P':P, 'type':'heterogeneous',
+#             'deltaR':deltaR[patch], 'quality_ratio':ratio,
+            
+#             # record population dynamics summary
+#             'SpBiomassMean':Bf_heterogeneous[patch], 
+#             'Sfinal':sum(Bf_heterogeneous[patch]>0), # number of persistent species
+#             'Persistence':sum(Bf_heterogeneous[patch]>0)/Stot # proportion of persistent species
+#             })])
+        
+#             # plot pop dynamics for all species
+#     #     plt.subplot(1,3, ind)
+#     #     plt.tight_layout()
+        
+#     #     plt.loglog(solT[np.arange(0,solT.shape[0],10)], 
+#     #                solY[np.ix_(np.arange(0,solT.shape[0],10),range(Stot_new*ind-Stot_new,Stot_new*ind))])
+#     # plt.title("Heterogeneous")
+#     # plt.show()
+    
+#     # plt.scatter(res_sim_heterogeneous['deltaR'], res_sim_heterogeneous['SpBiomassMean'])
+#     # plt.scatter(res_sim_heterogeneous['deltaR'], res_sim_heterogeneous['Persistence'])
+    
+#     res_sim_heterogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/ResultsInitial_sim{s}_{P}Patches_{Stot}sp_{C}C_heterogeneous_ratio{ratio}.csv')
+    
+    
+#     sol_heterogeneous.update({'FW':FW, 'type':'heterogeneous', 'FW_new':FW_new,"sim":s,
+#                               'FW_ID':k,"FW_file":f,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'ratio':ratio,
+#                               'tstart':0, 'tmax':tmax,'q':q})
+#     np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/InitialPopDynamics_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_heterogeneous, allow_pickle = True)
+
+#     # sol_heterogeneous = np.load(f'D:/TheseSwansea/PatchModels/outputs/{P}Patches/InitialPopDynamics_heterogeneous1_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy', allow_pickle = True).item()
+    
+#     ###############################################################################
+# else:
+    
+#     sol_heterogeneous = np.load(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/InitialPopDynamics_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy', allow_pickle = True).item()
+    
+#     Bf_heterogeneous = np.zeros(shape = (P,Stot_new))
+#     for patch in range(P):
+        
+#         p_index = patch + 1
+        
+#         # sol_ivp_k1["y"][sol_ivp_k1["y"]<1e-20] = 0         
+#         solT = sol_heterogeneous['t']
+#         solY = sol_heterogeneous['y']
+#         ind = patch + 1
+        
+#         Bf_heterogeneous[patch] = solY[-1,range(Stot_new*ind-Stot_new,Stot_new*ind)]
+
+
+# patch = 7
+
+    
+# ### Apply disturbance:
+
+# Bf_heterogeneous_disturbed = Bf_heterogeneous.copy()
+# tstart = sol_heterogeneous["t"][-1].copy()
+# tinit = tstart.copy()
+# runtime = 5e10
+# disturbance = 5e-6
+# # tmax = tinit + tinit * 0.75
+# # BF_disturbed[1][FW["TL"] == 3] = 0
+# # BF_disturbed[1][sp_pres == 1] = 0 # species unique to one pacth
+
+# # Get reduced space
+# Stot_heterogeneous_new, FW_heterogeneous_new, disp_heterogeneous_new = reduce_FW(FW_new, Bf_heterogeneous_disturbed, P, disp_new)
+
+
+
+# path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/CONTROL-DisturbedPopDynamics_heterogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
+# if not os.path.exists(path):
+#     print('Control')
+    
+#     # check if the species isn't extinct
+#     y0 = FW_heterogeneous_new['y0'].reshape(P*Stot_heterogeneous_new)
+    
+    
+#     harvesting = np.zeros(shape = (P, Stot_heterogeneous_new))
+        
+#     start = time.time()   
+#     sol_heterogeneous_disturbed = run_dynamics(y0, tinit, tinit + runtime, q, P, Stot_heterogeneous_new, FW_heterogeneous_new, disp_heterogeneous_new, deltaR, harvesting, -1,-1,0, s)
+#     stop = time.time()   
+#     print(stop - start)
+        
+#     sol_homogeneous_disturbed.update({'FW':FW, 'type':'heterogeneous', 'FW_new':FW_homogeneous_new,'Stot_new':Stot_homogeneous_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
+#                   'tstart':tstart, 'runtime':runtime,'q':q})
+#     np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/CONTROL-DisturbedPopDynamics_heterogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_heterogeneous_disturbed, allow_pickle = True)
+
+
+
+# # %% disturbance heterogeneous
+
+# print('Heterogeneous - disturbance',s, flush=True)
+
+
+
+# res_sim_sp_heterogeneous = pd.DataFrame()
+# for patch in [patch]:
+#     for sp in range(Stot_heterogeneous_new):
+#         path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/DisturbedP{patch}PopDynamics_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy'
+#         path_notStabilised = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_disturbance{disturbance}_{sp}SpDisturbed.npy'
+
+#         if not os.path.exists(path) and not os.path.exists(path_notStabilised):
+
+#             print('species disturbed:', sp, flush=True)
+#             # check if the species isn't extinct
+#             y0 = FW_heterogeneous_new['y0'].reshape(P*Stot_heterogeneous_new)
+            
+#             if (y0[sp + patch*Stot_heterogeneous_new] == 0): 
+#                 continue
+#             else:
+#                 print("patch", patch, "sp", sp, flush=True)
+#                 harvesting = np.zeros(shape = (P, Stot_heterogeneous_new))
+#                 harvesting[patch][sp] = disturbance
+#                 # c = np.zeros(shape = (P, Stot))
+#                 # c[patch][sp] = 0.25
+                
+#             # run dynamics from equilibrium Bf_disturbed
+#             # Bf_disturbed = Bf_disturbed.reshape(P*Stot_heterogeneous_new,)
+            
+#             start = time.time()   
+#             sol_heterogeneous_disturbed = run_dynamics(y0, tinit, tinit + runtime, q, P, Stot_heterogeneous_new, FW_heterogeneous_new, disp_heterogeneous_new, deltaR, harvesting, patch, sp, disturbance, s)
+#             stop = time.time()   
+#             print(stop - start)
+                
+#             if sol_heterogeneous_disturbed != 'Did not stabilise after 12 hours':
+            
+#                 sol_heterogeneous_disturbed.update({'FW':FW, 'type':'heterogeneous', 'ratio':ratio, 'FW_new':FW_heterogeneous_new,'Stot_new':Stot_heterogeneous_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
+#                               'tstart':tstart, 'runtime':runtime,'q':q})
+#                 np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/DisturbedP{patch}PopDynamics_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_heterogeneous_disturbed, allow_pickle = True)
+        
+#                 # save final biomass density after perturbation and plot dynamics
+                
+#                 Bf1 = np.zeros(shape = (P,Stot_heterogeneous_new))
+#                 for p in range(P):
+                    
+#                     p_index = patch + 1
+                             
+#                     solT = sol_heterogeneous_disturbed['t']
+#                     solY = sol_heterogeneous_disturbed['y']
+#                     ind = p + 1
+                    
+#                     Bf1[p] = solY[-1,range(Stot_heterogeneous_new*ind-Stot_heterogeneous_new,Stot_heterogeneous_new*ind)]
+                    
+#                 #     # plot pop dynamics for all species
+#                 #     plt.subplot(1, 3, ind)
+#                 #     plt.tight_layout()
+                    
+#                 #     plt.plot(solT[np.arange(0,solT.shape[0],10)], 
+#                 #                solY[np.ix_(np.arange(0,solT.shape[0],10),range(Stot_heterogeneous_new*ind-Stot_heterogeneous_new,Stot_heterogeneous_new*ind))])
+#                 #     plt.plot(solT[np.arange(0,solT.shape[0],10)], 
+#                 #                solY[np.arange(0,solT.shape[0],10),sp+ Stot_heterogeneous_new*(ind-1)], linestyle="dotted")
+                    
+#                 # plt.title("With events")
+#                 # plt.show()
+                
+                
+#                 extinct2 = np.repeat(False,Stot_heterogeneous_new)
+#                 if ((FW_heterogeneous_new['y0'] > 0) & (Bf1 == 0)).any():
+#                     for j in range(P):
+#                         extinct2 = extinct2 | (FW_heterogeneous_new['y0'][j] > 0) & (Bf1[j] == 0) 
+                
+#                 res_sim_sp_heterogeneous = pd.concat([res_sim_sp_heterogeneous, pd.DataFrame({
+#                     # record all the characterstics of the simulation
+#                     'sim':s,'tmax':tmax,'d':d,'Stot':Stot,'Stot_new':Stot_heterogeneous_new,'P':P,
+#                     'type':'heterogeneous', 'quality_ratio':ratio,
+#                     'patch_disturbed':patch, "sp_disturbed":sp,
+#                     'sp_ID':np.tile(FW_heterogeneous_new['sp_ID'],P),
+#                     'sp_ID_':np.tile(FW_heterogeneous_new['sp_ID_'],P),
+#                     "TL_disturbed":FW_heterogeneous_new["TL"][sp],
+#                     "TP_disturbed":FW_heterogeneous_new["TP"][sp],
+#                     'disturbance':disturbance,
+#                     'nb_extinct':sum(extinct2),
+#                     'patch':np.repeat(coords['Patch'],Stot_heterogeneous_new),
+#                     'x':np.repeat(coords['x'],Stot_heterogeneous_new),
+#                     'y':np.repeat(coords['y'],Stot_heterogeneous_new),
+#                     'deltaR':np.repeat(deltaR,Stot_heterogeneous_new),
+#                     "harvesting":harvesting.reshape(Stot_heterogeneous_new*P),    
+#                     # record population dynamics summary
+#                     'B_final':Bf1.reshape(Stot_heterogeneous_new*P),
+#                     "B_init":y0
+#                     })])
+        
+#                 res_sim_sp_heterogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/ResultsDisturbed_sim{s}_{P}Patches_{Stot}sp_{C}C_Heterogeneous_ratio{ratio}.csv')
+
+
+

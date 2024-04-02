@@ -179,6 +179,13 @@ res9 = res9.merge(coords9P, left_on = ['sim', 'patch','quality_ratio'], right_on
 res9_init = res9_init.merge(coords9P, left_on = ['sim', 'patch','quality_ratio'], right_on = ['sim', 'Patch','quality_ratio'])
 
 
+res9 = res9.loc[res9['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+FW9 = FW9.loc[FW9['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+FW9_init = FW9_init.loc[FW9_init['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+res9_init = res9_init.loc[res9_init['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+
+
+
 #%% Comparing inside/outside and before/after
 
 ## here we compare independant simulations for the before/after scenario,
@@ -249,11 +256,16 @@ ax2.set_title('inside/outside')
 
 ## need to get distance to high quality patches [0,1,3]
 
+FW9_init['quality_ratio_labels'] = FW9_init['quality_ratio']
+FW9_init['quality_ratio_labels'] = FW9_init['quality_ratio_labels'].map({1.0: 'Homogeneous', 0.5: 'Intermediate heterogeneity', 0.3: 'Max heterogeneity'})
+
+FW9_init['deltaR_labels'] = FW9_init['deltaR']
+FW9_init['deltaR_labels'] = FW9_init['deltaR_labels'].map({1.0: 'High quality patch', 0.5: 'Low quality patch'})
+
 
 ## it seems that regardless of heterogeneity, patch isolation plays a strong role in how
 ## many species can survive in a patch
-sb.scatterplot(x='shortest_distance', y = 'S_local', hue = "quality_ratio", data=FW9_init,
-              edgecolor='none', s = 15, hue_order = [0.5, 1.0]) # remove the points' default edges 
+sb.boxplot(x='shortest_distance', y = 'S_local', hue = "quality_ratio_labels", data=FW9_init) # remove the points' default edges 
 
 plt.savefig('D:/TheseSwansea/SFT/Figures/SpeciesRichness-DistanceHighQualityPatches.png', dpi = 400, bbox_inches = 'tight')
 
