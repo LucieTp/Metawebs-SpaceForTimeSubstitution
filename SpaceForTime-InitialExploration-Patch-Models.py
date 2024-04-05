@@ -179,10 +179,10 @@ res9 = res9.merge(coords9P, left_on = ['sim', 'patch','quality_ratio'], right_on
 res9_init = res9_init.merge(coords9P, left_on = ['sim', 'patch','quality_ratio'], right_on = ['sim', 'Patch','quality_ratio'])
 
 
-res9 = res9.loc[res9['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
-FW9 = FW9.loc[FW9['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
-FW9_init = FW9_init.loc[FW9_init['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
-res9_init = res9_init.loc[res9_init['sim'].isin([0,1,2,3,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+res9 = res9.loc[res9['sim'].isin([0,1,2,3,7,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+FW9 = FW9.loc[FW9['sim'].isin([0,1,2,3,7,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+FW9_init = FW9_init.loc[FW9_init['sim'].isin([0,1,2,3,7,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
+res9_init = res9_init.loc[res9_init['sim'].isin([0,1,2,3,7,9]),:] ## keep only simulations where we have heterogeneous and homogeneous results
 
 
 

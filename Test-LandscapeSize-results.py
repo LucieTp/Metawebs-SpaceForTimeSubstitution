@@ -42,25 +42,26 @@ with open('InitialPopDynamics_homogeneous_sim7_20Patches_Stot100_C10_t1000000000
 f.close()
 
 ### runtime?
-print(round(sol20P['sim_duration'] / (60*60)), ' hours and ', (sol20P['sim_duration'] % (60*60)) / (60*60) ## 3 hours and
+print(round(sol20P['sim_duration'] / (60*60)), ' hours and ', round((sol20P['sim_duration'] % (60*60)) / (60)), ' minutes') ## 3 hours and
 
 
 with open('InitialPopDynamics_homogeneous_sim7_15Patches_Stot100_C10_t1000000000000r.pkl', 'rb') as f:
     sol15P = pickle.load(f)
 f.close()
     
+print(round(sol15P['sim_duration'] / (60*60)), ' hours and ', round((sol15P['sim_duration'] % (60*60)) / (60)), ' minutes') ## 3 hours and
+
 
 ### plotting dynamics
-
-nb_patches = 20
-solT = sol20P['t'] ## time
-solY = sol20P['y'] ## biomasses
+sol = sol15P
+nb_patches = 15
 
 
 
+solT = sol['t'] ## time
+solY = sol['y'] ## biomasses
 
-
-FW_new = sol20P['FW_new'] ## subset food web (this goes with sp_ID_)
+FW_new = sol['FW_new'] ## subset food web (this goes with sp_ID_)
 Stot_new = FW_new['Stot']
 
 # mean biomass across the last 5% of the time steps
@@ -89,7 +90,7 @@ for p in range(nb_patches):
                                           ## diversity measure
                                          'alpha_diversity':-np.sum(prop_local*np.log(prop_local)), # shannon diversity (-sum(pi*ln(pi)))
                                          
-                                         'simulation_length':sol20P['t'][-1]
+                                         'simulation_length':sol['t'][-1]
                                          }, index=[ind]))
     
     plt.subplot(4, 5, ind)
