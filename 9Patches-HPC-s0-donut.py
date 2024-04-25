@@ -264,7 +264,75 @@ def MeanFoodChainLength(FW):
                         fcl.append(len(p))
         mfcl = sum(fcl)/len(fcl)
         
-    return(mfcl)            
+    return(mfcl)          
+
+    
+
+def create_landscape(P, extent):
+    
+    '''
+    Create landscape (x and y coordinates of each patch)
+    
+    Input the number of patch and extent of the landscape (consider that all lanscapes are 
+                                                           square of dimensions LxL, thus extent 
+                                                           corresponds to length of one edge of the square (= L))
+    
+
+    Randomly draws x and y coordinates from a uniform distribution bounded by the extent given. 
+    We seed the random number generation to have the same landscape configuration at each run. 
+        
+    Returns pandas dataframe with x and y columns and patch ID
+    
+    '''
+    
+    coords = pd.DataFrame()
+    for i in range(P):
+        np.random.seed(i)
+        coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':[np.random.uniform(extent[0], extent[1])],
+                                  'y':[np.random.uniform(extent[0], extent[1])]})))
+    
+    return(coords)
+
+def get_distance(coords, extent):
+    
+    '''
+    Calculate euclidian distance between patches whose coordinates are 
+    recorded in coords (should have an 'x' and 'y' column with coordinates).
+    
+    We take the smallest distance between the regular euclidian distance and the 
+    distance to points on the other side of the landscape (to create a continuous
+                                                           landscape which traverses
+                                                           edges)
+    
+    Returns a PxP matrix for all possible pairwise distances.
+    
+    '''
+    
+    P = coords.shape[0]
+    dist = np.zeros((P,P))
+    for p1 in range(P): # patch 1
+        for p2 in range(P): # patch 2
+            # normal distance
+            dist_inside = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
+            
+            # we calculate the distance to the edge of the landscape for each point to see if they are closer from the 'other side'
+            mean_x = np.mean(coords['x'].iloc[[p1,p2]])
+            mean_y = np.mean(coords['y'].iloc[[p1,p2]])
+            
+            dist_horizontal_p1 = (min((coords['x'].iloc[p1] - extent[0])**2,(coords['x'].iloc[p1] - extent[1])**2) + (coords['y'].iloc[p1] - mean_y)**2)**(1/2)
+            dist_vertical_p1 = ((coords['x'].iloc[p1] - mean_x)**2 + min((coords['y'].iloc[p1] - extent[0])**2,(coords['y'].iloc[p1] - extent[1])**2))**(1/2)
+            dist_p1 = min(dist_horizontal_p1, dist_vertical_p1)
+            
+            dist_horizontal_p2 = (min((coords['x'].iloc[p2] - extent[0])**2,(coords['x'].iloc[p2] - extent[1])**2) + (coords['y'].iloc[p2] - mean_y)**2)**(1/2)
+            dist_vertical_p2 = ((coords['x'].iloc[p2] - mean_x)**2 + min((coords['y'].iloc[p2] - extent[0])**2,(coords['y'].iloc[p2] - extent[1])**2))**(1/2)
+            dist_p2 = min(dist_horizontal_p2, dist_vertical_p2)
+            
+            dist_outside = dist_p1 + dist_p2
+            
+            dist[p1,p2] = min(dist_inside, dist_outside)
+            
+    return(dist)
+
           
 params = {## attack rate parameters - alphas (Binzer et al)
     "ab":0.25, # scale to body mass of resource species
@@ -289,7 +357,7 @@ params = {## attack rate parameters - alphas (Binzer et al)
     "d0": 0.1256, "eps":0.05} ## might need to change those paramaters if we want them to range exactly from 0.158 to 0.5 as for Johanna's study
 
       
-def getSimParams(FW,S,P,coords,params=params):
+def getSimParams(FW,S,P,coords,extent,params=params):
     
     FW = obtainBodySize(FW)
     
@@ -368,11 +436,7 @@ def getSimParams(FW,S,P,coords,params=params):
     plt.show()
 
     # then calculate distances
-    distances = np.zeros(P*P).reshape(P,P)
-    for i in range(len(distances)):
-        for j in range(len(distances)):
-            distances[i,j] = ((coords.iloc[i,:]['x'] - coords.iloc[j,:]['x'])**2 + (coords.iloc[i,:]['y'] - coords.iloc[j,:]['y'])**2)**(1/2)
-
+    distances = get_distance(coords, extent)
     
     ## maximum dispersal distance (Häussler et al. 2021)
     ## scales with body size for animals and uniformly drawn from uniform distribution for plants
@@ -799,71 +863,6 @@ def reduce_FW(FW, y0, P, disp):
 
 
 
-def create_landscape(P, extent):
-    
-    '''
-    Create landscape (x and y coordinates of each patch)
-    
-    Input the number of patch and extent of the landscape (consider that all lanscapes are 
-                                                           square of dimensions LxL, thus extent 
-                                                           corresponds to length of one edge of the square (= L))
-    
-
-    Randomly draws x and y coordinates from a uniform distribution bounded by the extent given. 
-    We seed the random number generation to have the same landscape configuration at each run. 
-        
-    Returns pandas dataframe with x and y columns and patch ID
-    
-    '''
-    
-    coords = pd.DataFrame()
-    for i in range(P):
-        np.random.seed(i)
-        coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':[np.random.uniform(extent[0], extent[1])],
-                                  'y':[np.random.uniform(extent[0], extent[1])]})))
-    
-    return(coords)
-
-def get_distance(coords, extent):
-    
-    '''
-    Calculate euclidian distance between patches whose coordinates are 
-    recorded in coords (should have an 'x' and 'y' column with coordinates).
-    
-    We take the smallest distance between the regular euclidian distance and the 
-    distance to points on the other side of the landscape (to create a continuous
-                                                           landscape which traverses
-                                                           edges)
-    
-    Returns a PxP matrix for all possible pairwise distances.
-    
-    '''
-    
-    P = coords.shape[0]
-    dist = np.zeros((P,P))
-    for p1 in range(P): # patch 1
-        for p2 in range(P): # patch 2
-            # normal distance
-            dist_inside = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
-            
-            # we calculate the distance to the edge of the landscape for each point to see if they are closer from the 'other side'
-            mean_x = np.mean(coords['x'].iloc[[p1,p2]])
-            mean_y = np.mean(coords['y'].iloc[[p1,p2]])
-            
-            dist_horizontal_p1 = (min((coords['x'].iloc[p1] - extent[0])**2,(coords['x'].iloc[p1] - extent[1])**2) + (coords['y'].iloc[p1] - mean_y)**2)**(1/2)
-            dist_vertical_p1 = ((coords['x'].iloc[p1] - mean_x)**2 + min((coords['y'].iloc[p1] - extent[0])**2,(coords['y'].iloc[p1] - extent[1])**2))**(1/2)
-            dist_p1 = min(dist_horizontal_p1, dist_vertical_p1)
-            
-            dist_horizontal_p2 = (min((coords['x'].iloc[p2] - extent[0])**2,(coords['x'].iloc[p2] - extent[1])**2) + (coords['y'].iloc[p2] - mean_y)**2)**(1/2)
-            dist_vertical_p2 = ((coords['x'].iloc[p2] - mean_x)**2 + min((coords['y'].iloc[p2] - extent[0])**2,(coords['y'].iloc[p2] - extent[1])**2))**(1/2)
-            dist_p2 = min(dist_horizontal_p2, dist_vertical_p2)
-            
-            dist_outside = dist_p1 + dist_p2
-            
-            dist[p1,p2] = min(dist_inside, dist_outside)
-            
-    return(dist)
-
 
 
 # %% initial run homogeneous
@@ -911,7 +910,7 @@ coords = create_landscape(P, extentx)
 plt.scatter(coords['x'], coords['y'], c = coords['Patch'])
 plt.colorbar()
 
-FW = getSimParams(FW, S, P, coords)
+FW = getSimParams(FW, S, P, coords, extentx)
 
 ## calculate distance between patches (including the donut form - distance crossing the edges)
 dist = get_distance(coords, extentx)
