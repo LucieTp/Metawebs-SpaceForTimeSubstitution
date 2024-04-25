@@ -798,7 +798,70 @@ def reduce_FW(FW, y0, P, disp):
 
 
 
+def create_landscape(P, extent):
+    
+    '''
+    Create landscape (x and y coordinates of each patch)
+    
+    Input the number of patch and extent of the landscape (consider that all lanscapes are 
+                                                           square of dimensions LxL, thus extent 
+                                                           corresponds to length of one edge of the square (= L))
+    
 
+    Randomly draws x and y coordinates from a uniform distribution bounded by the extent given. 
+    We seed the random number generation to have the same landscape configuration at each run. 
+        
+    Returns pandas dataframe with x and y columns and patch ID
+    
+    '''
+    
+    coords = pd.DataFrame()
+    for i in range(P):
+        np.random.seed(i)
+        coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':[np.random.uniform(extent[0], extent[1])],
+                                  'y':[np.random.uniform(extent[0], extent[1])]})))
+    
+    return(coords)
+
+def get_distance(coords, extent):
+    
+    '''
+    Calculate euclidian distance between patches whose coordinates are 
+    recorded in coords (should have an 'x' and 'y' column with coordinates).
+    
+    We take the smallest distance between the regular euclidian distance and the 
+    distance to points on the other side of the landscape (to create a continuous
+                                                           landscape which traverses
+                                                           edges)
+    
+    Returns a PxP matrix for all possible pairwise distances.
+    
+    '''
+    
+    P = coords.shape[0]
+    dist = np.zeros((P,P))
+    for p1 in range(P): # patch 1
+        for p2 in range(P): # patch 2
+            # normal distance
+            dist_inside = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
+            
+            # we calculate the distance to the edge of the landscape for each point to see if they are closer from the 'other side'
+            mean_x = np.mean(coords['x'].iloc[[p1,p2]])
+            mean_y = np.mean(coords['y'].iloc[[p1,p2]])
+            
+            dist_horizontal_p1 = (min((coords['x'].iloc[p1] - extent[0])**2,(coords['x'].iloc[p1] - extent[1])**2) + (coords['y'].iloc[p1] - mean_y)**2)**(1/2)
+            dist_vertical_p1 = ((coords['x'].iloc[p1] - mean_x)**2 + min((coords['y'].iloc[p1] - extent[0])**2,(coords['y'].iloc[p1] - extent[1])**2))**(1/2)
+            dist_p1 = min(dist_horizontal_p1, dist_vertical_p1)
+            
+            dist_horizontal_p2 = (min((coords['x'].iloc[p2] - extent[0])**2,(coords['x'].iloc[p2] - extent[1])**2) + (coords['y'].iloc[p2] - mean_y)**2)**(1/2)
+            dist_vertical_p2 = ((coords['x'].iloc[p2] - mean_x)**2 + min((coords['y'].iloc[p2] - extent[0])**2,(coords['y'].iloc[p2] - extent[1])**2))**(1/2)
+            dist_p2 = min(dist_horizontal_p2, dist_vertical_p2)
+            
+            dist_outside = dist_p1 + dist_p2
+            
+            dist[p1,p2] = min(dist_inside, dist_outside)
+            
+    return(dist)
 
 
 # %% initial run homogeneous
@@ -822,13 +885,13 @@ for P in [9]:
     # S = np.repeat(Stot,P) # local pool sizes (all patches are full for now)
     S = np.repeat(round(Stot*1/3),P) # initiate with 50 patches
     
-    # parser = ArgumentParser()
-    # parser.add_argument('SimNb')
-    # args = parser.parse_args()
-    # s = int(args.SimNb)
-    # print(args, s, flush=True)
+    parser = ArgumentParser()
+    parser.add_argument('SimNb')
+    args = parser.parse_args()
+    s = int(args.SimNb)
+    print(args, s, flush=True)
     
-    s = 7
+    # s = 7
     
     import os 
     
@@ -847,24 +910,15 @@ for P in [9]:
     
     ## create landscape 
     extentx = [0,0.4]
-    coords = pd.DataFrame()
-    for i in range(P):
-        np.random.seed(i)
-        coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':[np.random.uniform(extentx[0], extentx[1])],
-                                  'y':[np.random.uniform(extentx[0], extentx[1])]})))
-    
+    coords = create_landscape(P, extentx)
     
     plt.scatter(coords['x'], coords['y'], c = coords['Patch'])
     plt.colorbar()
     
     FW = getSimParams(FW, S, P, coords)
     
-    ## calculate distance between patches
-    dist = np.zeros((P,P))
-    
-    for p1 in range(P): 
-        for p2 in range(P):
-            dist[p1,p2] = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
+    ## calculate distance between patches (including the donut form - distance crossing the edges)
+    dist = get_distance(coords, extentx)
     
     np.median(dist) ## should be close to np.median(FW['dmax'])
     
@@ -891,7 +945,7 @@ for P in [9]:
     
     import os
     
-    path = f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/ResultsInitial_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv'
+    path = f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/ResultsInitial_donutLandscape_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv'
     if not os.path.exists(path):
     
         print('Homogeneous - initial run',s)
@@ -944,7 +998,7 @@ for P in [9]:
         ## save results
         sol_homogeneous.update({'FW_new':FW_new, 'runtime':stop - start,'P':P, 'type':'homogeneous', 'FW':FW, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,
                                 'tstart':0, 'tmax':tmax,'q':q})
-        np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_homogeneous, allow_pickle = True)
-        res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/ResultsInitial_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
+        np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/InitialPopDynamics_donutLandscape_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_homogeneous, allow_pickle = True)
+        res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/SFT/ResultsInitial_donutLandscape_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
     
     

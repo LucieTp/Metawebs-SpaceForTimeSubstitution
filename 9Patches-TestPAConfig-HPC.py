@@ -906,48 +906,90 @@ harvesting = np.zeros(shape = (P, Stot_new))
 # %% Habitat restoration test
 
 
-path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy'
+# path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy'
 
 
-## load initial dynamics with all low patch quality
-sol_homogeneous = np.load(path, allow_pickle = True).item()
+# ## load initial dynamics with all low patch quality
+# sol_homogeneous = np.load(path, allow_pickle = True).item()
 
-## get final species composition in order to subset only surviving species from the 
-## regional pool
-Bf_homogeneous = np.zeros(shape = (P,Stot_new))
-for patch in range(P):
+# ## get final species composition in order to subset only surviving species from the 
+# ## regional pool
+# Bf_homogeneous = np.zeros(shape = (P,Stot_new))
+# for patch in range(P):
     
-    p_index = patch + 1
+#     p_index = patch + 1
     
-    # sol_ivp_k1["y"][sol_ivp_k1["y"]<1e-20] = 0         
-    solT = sol_homogeneous['t']
-    solY = sol_homogeneous['y']
-    ind = patch + 1
+#     # sol_ivp_k1["y"][sol_ivp_k1["y"]<1e-20] = 0         
+#     solT = sol_homogeneous['t']
+#     solY = sol_homogeneous['y']
+#     ind = patch + 1
     
-    Bf_homogeneous[patch] = solY[-1,range(Stot_new*ind-Stot_new,Stot_new*ind)]
+#     Bf_homogeneous[patch] = solY[-1,range(Stot_new*ind-Stot_new,Stot_new*ind)]
     
-Bf_homogeneous_restored = Bf_homogeneous.copy()
-tstart = sol_homogeneous["t"][-1].copy()
-tinit = tstart.copy()
-runtime = 1e11
+# Bf_homogeneous_restored = Bf_homogeneous.copy()
+# tstart = sol_homogeneous["t"][-1].copy()
+# tinit = tstart.copy()
+# runtime = 1e11
 
-ty = 'Homogeneous'
+# ty = 'Homogeneous'
 
-# Get reduced space
-Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new = reduce_FW(FW_new, Bf_homogeneous_restored, P, disp_new)
+# # Get reduced space
+# Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new = reduce_FW(FW_new, Bf_homogeneous_restored, P, disp_new)
 
 
-res_sim_sp_homogeneous = pd.DataFrame()
+# res_sim_sp_homogeneous = pd.DataFrame()
 
-## create file to load extinction events
-path = f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/Sp_extinct_event_{s}.csv"
-if not os.path.exists(path):
-    file = open(f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/Sp_extinct_event_{s}.csv","x") # create a file
-    file.close()
+# ## create file to load extinction events
+# path = f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/Sp_extinct_event_{s}.csv"
+# if not os.path.exists(path):
+#     file = open(f"/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/Sp_extinct_event_{s}.csv","x") # create a file
+#     file.close()
     
     
     
-deltaR = np.repeat(0.5,P)
+
+
+# import random
+# for rdseed in range(10): # TO TEST DIFFERENT LANDSCAPE CONFIGURATIONS
+
+#     random.seed(rdseed) # set seed for repeatability
+#     high_qual_patches = random.sample(range(P),3)
+
+#     deltaR = np.repeat(0.5,P)
+#     deltaR[high_qual_patches] = 1
+    
+#     # plt.scatter(coords['x'], coords['y'], c = deltaR)
+    
+#     # for deltaR in deltaR: # if want to do different ratios
+    
+#     ratio = np.min(deltaR)/np.max(deltaR)
+    
+#     harvesting = np.zeros(shape = (P, Stot_homogeneous_new))
+    
+#     path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/InitialPopDynamics_seed{rdseed}_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy'
+#     if not os.path.exists(path):
+    
+#         print('Heterogeneous - initial run',s, flush=True)
+        
+#         y0 = FW_homogeneous_new['y0'].reshape(P*Stot_homogeneous_new)
+        
+#         start = time.time()   
+#         sol_restored = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new, deltaR, harvesting, -1, -1, 0, s)
+#         stop = time.time()   
+#         print(stop - start)
+
+#         sol_restored.update({'FW':FW, 'y0':y0, 'type':'heterogeneous', 'Stot_new':Stot_homogeneous_new, 'FW_new':FW_homogeneous_new, 'disp_new':disp_homogeneous_new,"sim":s,
+#                                   'FW_ID':k,"FW_file":f,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'ratio':ratio,
+#                                   'tstart':0, 'tmax':tmax,'q':q, 'seed':rdseed})
+#         np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/InitialPopDynamics_seed{rdseed}_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_restored, allow_pickle = True)
+    
+ 
+    
+ 
+    
+ 
+# %% High habitat quality from the start (no restoration - similar to the patch model simulation)
+
 
 import random
 for rdseed in range(10): # TO TEST DIFFERENT LANDSCAPE CONFIGURATIONS
@@ -955,6 +997,7 @@ for rdseed in range(10): # TO TEST DIFFERENT LANDSCAPE CONFIGURATIONS
     random.seed(rdseed) # set seed for repeatability
     high_qual_patches = random.sample(range(P),3)
 
+    deltaR = np.repeat(0.5,P)
     deltaR[high_qual_patches] = 1
     
     # plt.scatter(coords['x'], coords['y'], c = deltaR)
@@ -963,23 +1006,22 @@ for rdseed in range(10): # TO TEST DIFFERENT LANDSCAPE CONFIGURATIONS
     
     ratio = np.min(deltaR)/np.max(deltaR)
     
-    harvesting = np.zeros(shape = (P, Stot_homogeneous_new))
+    harvesting = np.zeros(shape = (P, Stot_new))
     
     path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/InitialPopDynamics_seed{rdseed}_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy'
     if not os.path.exists(path):
     
         print('Heterogeneous - initial run',s, flush=True)
         
-        y0 = FW_homogeneous_new['y0'].reshape(P*Stot_homogeneous_new)
         
-        start = time.time()   
-        sol_restored = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new, deltaR, harvesting, -1, -1, 0, s)
+        start = time.time()    
+        sol = run_dynamics(FW_new['y0'].reshape(Stot_new*P,),0,tmax,q,P,Stot_new,FW_new,disp_new,deltaR,harvesting,-1,-1,0,s)
         stop = time.time()   
         print(stop - start)
 
-        sol_restored.update({'FW':FW, 'y0':y0, 'type':'heterogeneous', 'Stot_new':Stot_homogeneous_new, 'FW_new':FW_homogeneous_new, 'disp_new':disp_homogeneous_new,"sim":s,
+        sol.update({'FW':FW, 'y0':FW_new['y0'].reshape(Stot_new*P,), 'type':'heterogeneous', 'Stot_new':Stot_new, 'FW_new':FW_new, 'disp_new':disp_new,"sim":s,
                                   'FW_ID':k,"FW_file":f,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'ratio':ratio,
                                   'tstart':0, 'tmax':tmax,'q':q, 'seed':rdseed})
-        np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/InitialPopDynamics_seed{rdseed}_heterogeneous_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_restored, allow_pickle = True)
+        np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/TestPAConfig/InitialPopDynamics_seed{rdseed}_heterogeneous_fromZero_ratio{ratio}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol, allow_pickle = True)
     
  

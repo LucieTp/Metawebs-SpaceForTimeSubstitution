@@ -115,7 +115,7 @@ os.chdir('D:/TheseSwansea/Patch-Models/outputs/9Patches/Heterogeneous')
 init_files = init_files + ['D:/TheseSwansea/Patch-Models/outputs/9Patches/Heterogeneous/' + i for i in os.listdir() if '.npy' in i and 'InitialPopDynamics' in i]
 
 
-### calculate shortest distance
+### calculate shortest distance to higher quality patches
 P = 9
 Stot = 100
 disp = np.repeat(d, Stot*P).reshape(P,Stot)
