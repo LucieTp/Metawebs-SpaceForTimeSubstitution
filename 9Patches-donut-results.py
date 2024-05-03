@@ -66,5 +66,58 @@ res9_init, FW9_init = fn.summarise_initial_pop_dynamics(list_files=init_9P_files
 
 FW9_init['simulation_length_years'] = FW9_init['simulation_length']/(60*60*24*365)
 
-res9_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/9Patches/donut-landscape-test/ResultsInitial-donut-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
-FW9_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/9Patches/donut-landscape-test/ResultsInitial-donut-FoodwebMetrics-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+res9_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/9Patches/ResultsInitial-donut-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+FW9_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/9Patches/ResultsInitial-donut-FoodwebMetrics-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+
+
+
+# %% Load datasets
+
+P = 9
+## 10P homogeneous
+os.chdir('D:/TheseSwansea/Patch-Models/outputs/9Patches')
+
+res9_init_donut = pd.read_csv(f'ResultsInitial-donut-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+FW9_init_donut = pd.read_csv(f'ResultsInitial-donut-FoodwebMetrics-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+res9_init_donut['landscape'] = 'donut'
+FW9_init_donut['landscape'] = 'donut'
+
+
+res9_init = pd.read_csv(f'ResultsInitial-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+FW9_init = pd.read_csv(f'ResultsInitial-FoodwebMetrics-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+res9_init['landscape'] = 'original'
+FW9_init['landscape'] = 'original'
+
+res9_init = res9_init[res9_init['sim'].isin(np.unique(res9_init_donut['sim']))]
+FW9_init = FW9_init[FW9_init['sim'].isin(np.unique(FW9_init_donut['sim']))]
+
+FW9_init = FW9_init[FW9_init['type'] == 'homogeneous']
+res9_init = res9_init[res9_init['type'] == 'homogeneous']
+
+
+# %% Looking at the differences
+
+# %%% Merge datasets
+
+FW9_init = pd.concat([FW9_init_donut, FW9_init])
+res9_init = pd.concat([res9_init_donut, res9_init])
+
+extentx = [0,0.4]
+coords9P = fn.create_landscape(P=9,extent=extentx)
+
+# (4) Euclidian distance to mean coordinate (x = 0.22; y = 0.25)
+coords9P['distance'] = round(((coords9P['x'] - np.mean(coords9P['x']))**2 + (coords9P['y'] - np.mean(coords9P['y']))**2)**0.5, 2)
+
+
+FW9_init_dist = pd.merge(FW9_init, coords9P, left_on = 'patch', right_on = 'Patch')
+res9_init_dist = res9_init.merge(coords9P, left_on = 'patch', right_on = 'Patch')
+
+FW9_init['deltaR'].describe()
+
+sb.boxplot(x='distance', y = 'S_local', hue = "landscape", data=FW9_init_dist) # remove the points' default edges 
+plt.savefig('D:/TheseSwansea/Patch-Models/Figures/DsitanceToEdge-PAConfig-quality.png', dpi = 400, bbox_inches = 'tight')
+
+
+
+
+
