@@ -58,8 +58,8 @@ S = np.repeat(round(Stot*1/3),P) # initiate with 50 patches
 #%%%% 15 PATCHES - donut landscape
 
 P = 15
-os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Homogeneous')
-init_15P_files = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Homogeneous/'+i for i in os.listdir() if '.pkl' in i and 'InitialPopDynamics' in i]
+os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Homogeneous/seed3')
+init_15P_files = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Homogeneous/seed3/'+i for i in os.listdir() if '.pkl' in i and 'InitialPopDynamics' in i]
 
 # run summary statistics function (above)
 res15_init, FW15_init = fn.summarise_initial_pop_dynamics(list_files=init_15P_files, nb_patches=P)
@@ -82,25 +82,6 @@ FW15_init = pd.read_csv(f'ResultsInitial-donut-FoodwebMetrics-handmade_sim_{P}Pa
 res15_init['landscape'] = 'donut'
 FW15_init['landscape'] = 'donut'
 
-
-# %% Looking at the differences
-
-# %%% Merge datasets
-
-extentx = [0,0.5]
-coords15P = fn.create_landscape(P=15,extent=extentx)
-
-# (4) Euclidian distance to mean coordinate (x = 0.22; y = 0.25)
-coords15P['distance'] = round(((coords15P['x'] - np.mean(coords15P['x']))**2 + (coords15P['y'] - np.mean(coords15P['y']))**2)**0.5, 2)
-
-
-FW15_init_dist = pd.merge(FW15_init, coords15P, left_on = 'patch', right_on = 'Patch')
-res15_init_dist = res15_init.merge(coords15P, left_on = 'patch', right_on = 'Patch')
-
-FW15_init['deltaR'].describe()
-
-sb.boxplot(x='distance', y = 'S_local', hue = "landscape", data=FW15_init_dist) # remove the points' default edges 
-plt.savefig('D:/TheseSwansea/Patch-Models/Figures/DsitanceToEdge-PAConfig-quality.png', dpi = 400, bbox_inches = 'tight')
 
 
 
