@@ -70,6 +70,19 @@ res15_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/15Patches/ResultsInitia
 FW15_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/15Patches/ResultsInitial-donut-FoodwebMetrics-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
 
 
+P = 15
+os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3')
+het_15P_files = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/'+i for i in os.listdir() if '.pkl' in i and 'patchImproved0' in i]
+
+# run summary statistics function (above)
+res15, FW15 = fn.summarise_initial_pop_dynamics(list_files=het_15P_files, nb_patches=P)
+
+FW15['simulation_length_years'] = FW15['simulation_length']/(60*60*24*365)
+
+res15_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/15Patches/ResultsHeterogeneous-seed3-donut-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+FW15_init.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/15Patches/ResultsHeterogeneous-seed3-donut-FoodwebMetrics-handmade_sim_{P}Patches_{Stot}sp_{C}C_27042024.csv')
+
+
 
 # %% Load datasets
 

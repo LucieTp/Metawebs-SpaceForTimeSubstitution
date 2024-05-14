@@ -510,101 +510,6 @@ def getSimParams(FW,S,P,coords,extent,params=params):
 
 
 
-
-###############################################################################
-### two patches dynamics with predation
-
-
-
-def TwoPatchesPredationBS_ivp(y0,q,P,S,FW,d,connectivity,deltaR,h,tfinal):
-        
-# Function defining the model. Inputs initial conditions, parameters and maxtime, outputs time and trajectories arrays
-    def System(t,y,q,P,S,FW,d,connectivity,deltaR,h): # Function defining the system of differential equations
-        
-    
-        a = FW['a'] # attack rate
-        h = FW['h'] # handling time
-        x = FW['x'] # metabolic rate
-        r = FW['r'] # growth rate
-        K = FW['K'] + 0.00001 # just to prevent division by zero
-        dmax = FW["dmax"] # maximum dispersal distance 
-        
-        # empty population size
-        dN = np.zeros(S*P).reshape(P,S)
-        
-        y = np.array(y).reshape(P,S)
-        y[y < 1e-8] = 0
-        
-        for p in range(P):
-            # current patch
-            N = y[p]  # previous population Np(t)
-            dNp = np.zeros(S)  # initialising Np(t + 1)
-            
-            # neighbouring patches
-            n = [j for j in range(P) if j!=p] # index of neighbouring patches
-            # Nn = [y[j] for j in n]
-            
-            Nn = y[n,:] # biomass in neighbouting patches
-            # Nn = Nn*access[p] # filter species' biomass from patches that are within their maximum disp distance
-            
-            # (1) PREDATION
-            # resources in rows, consumers in columns
-            
-            # Functionnal response: resource dependant feeding rate of consumer j on prey i influenced by j's k (other?) resources 
-            # Fij = aij*Bi/(1+sum(aik*hik*Nk)) 
-            # q = 1.4 # hill exponent (Sentis et al - between type II (hyperbolic q = 1) and type III (sigmoidal q = 2))
-            # increased from 1.2 to 1.4 after suggestion of Benoit Gauzens for increasing persistence. Could also think about adding interference compeition.
-            # who wrote ATNr package for allometric food webs
-            
-            F = a*(N.reshape(S,1)**(1 + q))
-            low = 1 + np.matmul(np.transpose(a*h), N**(1 + q)) + 0.2*N 
-            
-            F = np.divide(F,low)
-            
-            predationGains = N*F.sum(axis = 0)*0.85 # xi*e*Ni*sum(Fik)
-            predationLosses = np.matmul(N,F.T) # sum(xj*Nj*Fki)
-            
-            # print(F,"gain",predationGains, "loss",predationLosses)
-            
-            # (2) DISPERSAL 
-            emigration = -d[p]*N # biomass that leaves the source patch (z)
-            
-            # En = Nn*d[n,:] # emigrants leaving neighbouring patches 
-            
-            # low_d = np.sum(1 - dd[n,:,:], axis = 0)
-            # Nim = np.sum(En * (1 -  dd[p]) * (1 -  dd[p])/low_d, axis = 0)
-            
-            Nim = np.zeros(S) 
-            for ind in range(len(n)): # loop across neighbours 
-                Nim+= (d[p]/(P-1))*Nn[ind]*connectivity[p,n[ind]] # biomass of each species in neighbouring patches that successfully disperse
-            
-            
-            immigration = Nim # biomass not lost to the matrix during dispersal
-            
-            # print('immigration',immigration,'emigration', emigration)
-            # print(N, 'Gains', predationGains, 'loss', predationLosses)
-            
-            # growth rate*logistic growth (>0 for plants only) - metabolic losses + predation gains (>0 for animals only) - predation losses + dispersal
-            dNp = N*(r[p]*deltaR[p]*(1 - N/K) - x - h) + predationGains - predationLosses + immigration + emigration
-            # print(dNp)
-            
-            # dNp[N<1e-8] = 0 
-            dN[p] = dNp
-            
-        return np.array(dN).reshape(P*S)
-    
-    t_span = (0,tfinal)
-    sol_ivp = solve_ivp(fun = System, t_span = t_span, y0 = y0, args=(q,P,S,FW,d,connectivity,deltaR,h), method='LSODA') #, t_eval=t) # sol_ivp is the newer version of odeint https://danielmuellerkomorowska.com/2021/02/16/differential-equations-with-scipy-odeint-or-solve_ivp/
-    sol_ivp['y'][sol_ivp['y']<1e-8] = 0
-    
-    return sol_ivp
-
-
-
-# choice of timestep:
-# if I want 10**13 to be 100 years, and one time step to be one day then
-# one day = 10**13/(100*365)
-
 from csv import writer
 import time
 
@@ -1096,7 +1001,7 @@ else:
 '''
     
 
-Bf_homogeneous_restored = Bf_homogeneous.copy()
+Binit_restored = Bf_homogeneous.copy()
 tstart = sol_homogeneous["t"][-1].copy()
 tinit = tstart.copy()
 runtime = 1e11
@@ -1108,27 +1013,60 @@ print('Heterogeneous - restoration',s, flush=True)
 
 
 # Get reduced space
-Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new = reduce_FW(FW_new, Bf_homogeneous_restored, P, disp_new)
+FW_restored_new = FW_new.copy()
+FW_restored_new['y0'] = Binit_restored
 
-patches = coords[coords['position'] == 'center']['Patch']
 
 path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
 if not os.path.exists(path):
     print('Control')
     
     # check if the species isn't extinct
-    y0 = FW_homogeneous_new['y0'].reshape(P*Stot_homogeneous_new)
+    y0 = FW_restored_new['y0'].reshape(P*Stot_new)    
     
-    harvesting = np.zeros(shape = (P, Stot_homogeneous_new))
-        
+    harvesting = np.zeros(shape = (P, Stot_new))
+    
+    ## in the control - the invasive species should not be able to invade 
     start = time.time()   
-    sol_control = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new, deltaR, harvesting, -1,-1,0, s)
+    sol_control = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1,-1,0, s)
     stop = time.time()   
     print(stop - start)
         
-    sol_control.update({'FW':FW, 'type':'homogeneous', 'FW_new':FW_homogeneous_new,'Stot_new':Stot_homogeneous_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
+    sol_control.update({'FW':FW, 'type':'homogeneous', 'FW_new':FW_restored_new,'Stot_new':Stot_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
                   'tstart':tstart, 'runtime':runtime,'q':q})
     np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_control, allow_pickle = True)
+
+
+# mean biomass of plants in the landscape:
+mean_producer_biomass = np.mean(FW_restored_new['y0'][(FW_restored_new['y0'] != 0) & (FW_restored_new['TL'] == 0)])
+mean_consumer_biomass = np.mean(FW_restored_new['y0'][(FW_restored_new['y0'] != 0) & (FW_restored_new['TL'] != 0)])
+
+# to allow for re-invasion of species from the regional pool, we set extinct species' biomasses to 1/100 th of their extant equivalent
+FW_restored_new['y0'][(FW_restored_new['y0'] == 0) & (FW_restored_new['TL'] == 0)] = mean_producer_biomass/100 
+FW_restored_new['y0'][(FW_restored_new['y0'] == 0) & (FW_restored_new['TL'] != 0)] = mean_consumer_biomass/100 
+
+
+patches = coords[coords['position'] == 'center']['Patch']
+
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
+if not os.path.exists(path):
+    print('Control - invasion')
+    
+    # check if the species isn't extinct
+    y0 = FW_restored_new['y0'].reshape(P*Stot_new)    
+    
+    harvesting = np.zeros(shape = (P, Stot_new))
+    
+    ## in the control - the invasive species should not be able to invade 
+    start = time.time()   
+    sol_control = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1,-1,0, s)
+    stop = time.time()   
+    print(stop - start)
+        
+    sol_control.update({'FW':FW, 'type':'homogeneous', 'FW_new':FW_restored_new,'Stot_new':Stot_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
+                  'tstart':tstart, 'runtime':runtime,'q':q})
+    np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_control, allow_pickle = True)
+
 
 patch_to_improve = []
 for patch in patches:
@@ -1136,10 +1074,10 @@ for patch in patches:
     # start with one patch, then add the 4 others one by one
     patch_to_improve = patch_to_improve + [patch]
     
-    y0 = FW_homogeneous_new['y0'].reshape(P*Stot_homogeneous_new)
-    harvesting = np.zeros(shape = (P, Stot_homogeneous_new))  
+    y0 = FW_restored_new['y0'].reshape(P*Stot_new)
+    harvesting = np.zeros(shape = (P, Stot_new))  
     
-    path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/PopDynamics_heterogeneous_seed{seed_index}_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
+    path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/PopDynamics_heterogeneous-invasion_seed{seed_index}_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
     path_notStabilised = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}.npy'
 
     if not os.path.exists(path) and not os.path.exists(path_notStabilised):
@@ -1152,13 +1090,13 @@ for patch in patches:
         # Bf_disturbed = Bf_disturbed.reshape(P*Stot_new,)
         
         start = time.time()   
-        sol_heterogeneous_restored = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_homogeneous_new, FW_homogeneous_new, disp_homogeneous_new, deltaR, harvesting, -1, -1, 0, s)
+        sol_heterogeneous_restored = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1, -1, 0, s)
         stop = time.time()   
         print(stop - start)
             
         if sol_heterogeneous_restored != 'Did not stabilise after 12 hours':
         
-            sol_heterogeneous_restored.update({'FW':FW, 'type':ty, 'FW_new':FW_homogeneous_new,'Stot_new':Stot_homogeneous_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
+            sol_heterogeneous_restored.update({'FW':FW, 'type':ty, 'FW_new':FW_restored_new,'Stot_new':Stot_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
                           'tstart':tstart, 'runtime':runtime,'q':q, 'patch_to_improve':patch_to_improve})
             # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/DisturbedP{patch}PopDynamics_heterogeneous_seed{seed_index}_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_heterogeneous_restored, allow_pickle = True)
             
@@ -1166,7 +1104,7 @@ for patch in patches:
             print('keys ',sol_heterogeneous_restored.keys(), flush=True)
             print(sol_heterogeneous_restored, flush=True)
 
-            with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/PopDynamics_heterogeneous_seed{seed_index}_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
+            with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/PopDynamics_heterogeneous-invasion_seed{seed_index}_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
                 pickle.dump(sol_heterogeneous_restored, file, protocol=4) # serialize the list
             file.close()
             # save final biomass density after perturbation and plot dynamics
