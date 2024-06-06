@@ -91,6 +91,7 @@ def get_distance(coords, extent):
 
 
 
+
 def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with one 'Patch' col with patch IDs, and coordinates under 'x' and 'y' cols
     
     ## initialise DataFrames to save summary statistics
@@ -115,29 +116,9 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
         # FW_og = sol_disturbed['FW'] ## regional food web (this goes with sp_ID)
         FW_new = sol_disturbed['FW_new'] ## subset food web (this goes with sp_ID_)
         Stot_new = FW_new['Stot']
-        harvesting = sol_disturbed['harvesting'] # harvesting rates for each species on each patch
         coords = sol_disturbed['FW_new']['coords'] # get patch coordinates
 
-        if (harvesting == 0).all(): 
-            print(f)  ## the disturbed species went extinct and its disturbance was manually reset to zero after its extinction
-            
-            # disturbed patch:
-            if nb_patches == 10:
-                patch = 9
-            elif nb_patches == 3:
-                patch = 0
-            elif nb_patches == 9:
-                patch = 7
-                
-            # Search for the pattern in the string to identify which species went extinct
-            sp = int(re.findall(r'(\d+)Sp',f)[0])
-            disturbance = 5e-6
-            harvesting[patch][sp] = disturbance
-        else:
-            patch = np.where(harvesting != 0)[0][0] # patch disturbed
-            sp = np.where(harvesting != 0)[1][0] # sp disturbed
-            disturbance = harvesting[patch][sp]
-        
+        patch_improved = sol_disturbed['patch_to_improve']
         
         deltaR = sol_disturbed['deltaR'] # patch qualities
         ratio = np.min(deltaR)/np.max(deltaR) # quality ratio 
@@ -174,14 +155,12 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
                 extinct2 = extinct2 | (FW_new['y0'][j] > 0) & (Bf1[j] == 0)
                 extinct1[j*Stot_new:(j*Stot_new + Stot_new)] = (FW_new['y0'][j] > 0) & (Bf1[j] == 0)
         
-        # check if there was a focal extinction (extinction of the species that was disturbed)
-        # in its initial patch
-        focal_extinction = Bf1[harvesting > 0] <= 0     
         
         prop_regional = Bf1[Bf1 > 0]/np.sum(Bf1[Bf1 > 0])
         S_regional = Bf1.shape[1]
         prop_local_all = Bf1/np.repeat(np.sum(Bf1, axis = 1),S_regional).reshape(nb_patches,S_regional)
 
+    
         for p in range(nb_patches):
        
             ind = p + 1
@@ -197,17 +176,13 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
             
             # summary table at the patch level (9 rows or 3 rows per simulation depending on the landscape)
             FW_metrics = pd.concat([FW_metrics, 
-                                   pd.DataFrame({'file':f, 'sim':s, 'patch':p, 'patch_disturbed':patch, 
+                                   pd.DataFrame({'file':f, 'sim':s, 'patch':p, 'patch_improved':patch_improved, 
                                                  'type':scenario_type, 'quality_ratio':ratio,
-                                                 "sp_disturbed":sp, 
                                                  'S_regional':S_regional,
                                                  'S_local':len(surviving_sp), 'C_local': np.sum(local_FW),
-                                                 'disturbance':disturbance,
                                                  'MeanGen_local': np.mean(np.sum(local_FW, axis = 0)),
                                                  'MeanVul_local': np.mean(np.sum(local_FW, axis = 1)),
                                                  'MeanTL_local': np.mean(FW_new['TL'][surviving_sp]), # mean trophic level of surviving species on patch p
-                                                 "TL_disturbed":FW_new["TL"][sp],
-                                                 "TP_disturbed":FW_new["TP"][FW_new["sp_ID"][sp]],
                                                  
                                                  'simulation_length':sol_disturbed['t'][-1],
                                                   
@@ -383,7 +358,7 @@ def summarise_initial_pop_dynamics(list_files, nb_patches): ## coords = DataFram
             FW_metrics = pd.concat([FW_metrics, 
                                    pd.DataFrame({'file':f, 'sim':s, 'patch':p, 
                                                  'type':scenario_type, 'quality_ratio':ratio,
-                                                 'S_regional':S_regional,
+                                                 'S_regional':S_regional, 
                                                  'S_local':len(surviving_sp), 'C_local': np.sum(local_FW),
                                                  'MeanGen_local': np.mean(np.sum(local_FW, axis = 0)),
                                                  'MeanVul_local': np.mean(np.sum(local_FW, axis = 1)),

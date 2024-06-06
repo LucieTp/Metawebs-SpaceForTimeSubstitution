@@ -112,13 +112,20 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
                 sol_disturbed = pickle.load(file)  
             file.close()
             
+            
         s = sol_disturbed['sim'] ## simulation number
         # FW_og = sol_disturbed['FW'] ## regional food web (this goes with sp_ID)
         FW_new = sol_disturbed['FW_new'] ## subset food web (this goes with sp_ID_)
         Stot_new = FW_new['Stot']
         coords = sol_disturbed['FW_new']['coords'] # get patch coordinates
 
-        patch_improved = sol_disturbed['patch_to_improve']
+        count = np.unique(FW_new['y0'], return_counts=True)
+        y0_unique = count[0]
+        y0_count = count[1]
+        mean_biomasses = y0_unique[y0_count > 1]
+        FW_new['invaders'] = np.isin(FW_new['y0'], mean_biomasses)
+ 
+        patch_improved = np.where(sol_disturbed['deltaR'] > 0.5)[0]
         
         deltaR = sol_disturbed['deltaR'] # patch qualities
         ratio = np.min(deltaR)/np.max(deltaR) # quality ratio 
@@ -232,6 +239,7 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
                 'type':scenario_type, 'quality_ratio':ratio,
                 'nb_improved':len(patch_improved),
                 'patch':np.repeat(coords['Patch'],Stot_new), # patch ID
+                'Invaders':FW_new['invaders'].reshape(Stot_new*nb_patches),
                 
                 ## coordinates
                 'x':np.repeat(coords['x'],Stot_new),

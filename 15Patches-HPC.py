@@ -341,16 +341,11 @@ def create_landscape(P, extent, radius_max, nb_center, seed):
     
     return(coords)
 
-def get_distance(coords, extent):
+def get_distance(coords):
     
     '''
     Calculate euclidian distance between patches whose coordinates are 
     recorded in coords (should have an 'x' and 'y' column with coordinates).
-    
-    We take the smallest distance between the regular euclidian distance and the 
-    distance to points on the other side of the landscape (to create a continuous
-                                                           landscape which traverses
-                                                           edges)
     
     Returns a PxP matrix for all possible pairwise distances.
     
@@ -358,27 +353,10 @@ def get_distance(coords, extent):
     
     P = coords.shape[0]
     dist = np.zeros((P,P))
-    for p1 in range(P): # patch 1
-        for p2 in range(P): # patch 2
-            # normal distance
-            dist_inside = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
-            
-            # we calculate the distance to the edge of the landscape for each point to see if they are closer from the 'other side'
-            mean_x = np.mean(coords['x'].iloc[[p1,p2]])
-            mean_y = np.mean(coords['y'].iloc[[p1,p2]])
-            
-            dist_horizontal_p1 = (min((coords['x'].iloc[p1] - extent[0])**2,(coords['x'].iloc[p1] - extent[1])**2) + (coords['y'].iloc[p1] - mean_y)**2)**(1/2)
-            dist_vertical_p1 = ((coords['x'].iloc[p1] - mean_x)**2 + min((coords['y'].iloc[p1] - extent[0])**2,(coords['y'].iloc[p1] - extent[1])**2))**(1/2)
-            dist_p1 = min(dist_horizontal_p1, dist_vertical_p1)
-            
-            dist_horizontal_p2 = (min((coords['x'].iloc[p2] - extent[0])**2,(coords['x'].iloc[p2] - extent[1])**2) + (coords['y'].iloc[p2] - mean_y)**2)**(1/2)
-            dist_vertical_p2 = ((coords['x'].iloc[p2] - mean_x)**2 + min((coords['y'].iloc[p2] - extent[0])**2,(coords['y'].iloc[p2] - extent[1])**2))**(1/2)
-            dist_p2 = min(dist_horizontal_p2, dist_vertical_p2)
-            
-            dist_outside = dist_p1 + dist_p2
-            
-            dist[p1,p2] = min(dist_inside, dist_outside)
-            
+    for p1 in range(P): 
+        for p2 in range(P):
+            dist[p1,p2] = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
+    
     return(dist)
 
           
@@ -484,7 +462,7 @@ def getSimParams(FW,S,P,coords,extent,params=params):
     plt.show()
 
     # then calculate distances
-    distances = get_distance(coords, extent)
+    distances = get_distance(coords)
     
     ## maximum dispersal distance (Häussler et al. 2021)
     ## scales with body size for animals and uniformly drawn from uniform distribution for plants
@@ -872,7 +850,7 @@ coords = create_landscape(P, extentx, radius_max, 5, seed = seed)
 
 FW = getSimParams(FW, S, P, coords, extentx)
 
-## calculate distance between patches (including the donut form - distance crossing the edges)
+## calculate distance between patches
 dist = FW['distances']
 np.sum(dist, axis = 0)
 np.median(dist) ## should be close to np.median(FW['dmax'])
@@ -903,7 +881,7 @@ B_init = FW_new['y0']
 
 import os
 
-path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_donut_seed{seed_index}_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl'
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_seed{seed_index}_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl'
 if not os.path.exists(path):
 
     print('Homogeneous - initial run',s)
@@ -960,12 +938,12 @@ if not os.path.exists(path):
         sol_homogeneous.update({'FW_new':FW_new, 'type':'homogeneous', 'FW':FW, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,
                                 'tstart':0, 'tmax':tmax,'q':q, 'sim_duration':sim_duration})
         
-        with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_donut_seed{seed_index}_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl', 'wb') as file:  # open a text file
+        with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_seed{seed_index}_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl', 'wb') as file:  # open a text file
             pickle.dump(sol_homogeneous, file, protocol=4) # serialize the list
         file.close()
         
         # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_homogeneous, allow_pickle = True)
-        res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/ResultsInitial_donut_seed{seed_index}_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
+        res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/ResultsInitial_seed{seed_index}_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
 
     
 
@@ -1019,8 +997,8 @@ FW_restored_new = FW_new.copy()
 FW_restored_new['y0'] = Binit_restored
 
 
-path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
-path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
+path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
 
 if not os.path.exists(path) and not os.path.exists(path_pkl) :
     print('Control')
@@ -1039,11 +1017,11 @@ if not os.path.exists(path) and not os.path.exists(path_pkl) :
     sol_control.update({'FW':FW, 'type':'homogeneous', 'FW_new':FW_restored_new,'Stot_new':Stot_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
                   'tstart':tstart, 'runtime':runtime,'q':q})
     
-    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
+    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
         pickle.dump(sol_control, file, protocol=4) # serialize the list
     file.close()
     
-    # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_control, allow_pickle = True)
+    # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_control, allow_pickle = True)
 
 
 # mean biomass of plants in the landscape:
@@ -1051,19 +1029,19 @@ mean_producer_biomass = np.mean(FW_restored_new['y0'][(FW_restored_new['y0'] != 
 mean_consumer_biomass = np.mean(FW_restored_new['y0'][(FW_restored_new['y0'] != 0) & (FW_restored_new['TL'] != 0)])
 
 # to allow for re-invasion of species from the regional pool, we set extinct species' biomasses to 1/100 th of their extant equivalent
-FW_restored_new['invaders'] = FW_restored_new['y0'] == 0
+FW_restored_new['invaders'] = FW_restored_new['y0'][coords['position'] == 'outside'] == 0
 FW_restored_new['mean_producer_biomass'] = mean_producer_biomass
 FW_restored_new['mean_consumer_biomass'] = mean_consumer_biomass
 
-
-FW_restored_new['y0'][(FW_restored_new['y0'] == 0) & (FW_restored_new['TL'] == 0)] = mean_producer_biomass/100
-FW_restored_new['y0'][(FW_restored_new['y0'] == 0) & (FW_restored_new['TL'] != 0)] = mean_consumer_biomass/100 
+# allow invasion only in outside patches
+FW_restored_new['y0'][coords['position'] == 'outside'][(FW_restored_new['y0'][coords['position'] == 'outside'] == 0) & (FW_restored_new['TL'][coords['position'] == 'outside'] == 0)] = mean_producer_biomass/100
+FW_restored_new['y0'][coords['position'] == 'outside'][(FW_restored_new['y0'][coords['position'] == 'outside'] == 0) & (FW_restored_new['TL'][coords['position'] == 'outside'] != 0)] = mean_consumer_biomass/100 
 
 
 patches = coords[coords['position'] == 'center']['Patch']
 
-path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
-path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
+path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
 
 if not os.path.exists(path) and not os.path.exists(path_pkl) :
     print('Control - invasion')
@@ -1082,11 +1060,11 @@ if not os.path.exists(path) and not os.path.exists(path_pkl) :
     sol_control.update({'FW':FW, 'B_init': B_init, 'B_final_homogeneous': Bf_homogeneous, 'type':'homogeneous', 'FW_new':FW_restored_new,'Stot_new':Stot_new, "sim":s,'FW_ID':k,"FW_file":f,"disp":disp_new,"harvesting":harvesting,"deltaR":deltaR,
                   'tstart':tstart, 'runtime':runtime,'q':q})
     
-    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
+    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
         pickle.dump(sol_control, file, protocol=4) # serialize the list
     file.close()
     
-    # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_donut_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_control, allow_pickle = True)
+    # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_control, allow_pickle = True)
 
 
 patch_to_improve = []

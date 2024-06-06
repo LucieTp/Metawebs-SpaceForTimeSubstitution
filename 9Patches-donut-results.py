@@ -118,6 +118,8 @@ sb.boxplot(x='distance', y = 'S_local', hue = "landscape", data=FW9_init_dist) #
 plt.savefig('D:/TheseSwansea/Patch-Models/Figures/DsitanceToEdge-PAConfig-quality.png', dpi = 400, bbox_inches = 'tight')
 
 
+sb.stripplot(x='distance', y = 'B_final', hue = "landscape", data=res9_init_dist) # remove the points' default edges 
+sb.pointplot(x='distance', y = 'B_final', hue = "landscape", data=res9_init_dist, estimator = 'mean') # remove the points' default edges 
 
 
 
