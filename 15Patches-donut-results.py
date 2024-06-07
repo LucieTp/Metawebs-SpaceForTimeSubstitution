@@ -339,8 +339,8 @@ FW15.to_csv(f'D:/TheseSwansea/Patch-Models/outputs/15Patches/Control-Invasion-se
 #### invasion and restoration
 
 P = 15
-os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion')
-het_15P_files_invasion = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/'+i for i in os.listdir() if '.pkl' in i and 'patchImproved' in i]
+os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/donut')
+het_15P_files_invasion = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/donut/'+i for i in os.listdir() if '.pkl' in i and 'patchImproved' in i]
 
 # run summary statistics function (above)
 res15, FW15 = fn.summarise_pop_dynamics(list_files=het_15P_files_invasion, nb_patches=P)
@@ -526,6 +526,18 @@ plt.setp(ax.collections, zorder=100)
 
 ax.legend(bbox_to_anchor = [1,0.8])
 
+
+
+## Landscape-level:
+    
+## Landscape-level species richness
+ax = sb.stripplot(data = FW15_invasion, y = 'S_local', hue = 'patch', x = 'nb_improved', palette = palette_colors)
+sb.pointplot(data = FW15_invasion, y = 'S_local', hue = 'patch', x = 'nb_improved', scale = 0.5, palette = ['black'],
+              ax = ax, errorbar = None)
+plt.setp(ax.lines, zorder=100) # to have the pointplot on top
+plt.setp(ax.collections, zorder=100)
+
+ax.legend(bbox_to_anchor = [1,0.8])
 
 
 ## mean TL

@@ -1034,8 +1034,8 @@ FW_restored_new['mean_producer_biomass'] = mean_producer_biomass
 FW_restored_new['mean_consumer_biomass'] = mean_consumer_biomass
 
 # allow invasion only in outside patches
-FW_restored_new['y0'][coords['position'] == 'outside'][(FW_restored_new['y0'][coords['position'] == 'outside'] == 0) & (FW_restored_new['TL'][coords['position'] == 'outside'] == 0)] = mean_producer_biomass/100
-FW_restored_new['y0'][coords['position'] == 'outside'][(FW_restored_new['y0'][coords['position'] == 'outside'] == 0) & (FW_restored_new['TL'][coords['position'] == 'outside'] != 0)] = mean_consumer_biomass/100 
+FW_restored_new['y0'][coords['position'] == 'outside'][(FW_restored_new['y0'][coords['position'] == 'outside'] == 0) & (FW_restored_new['TL'] == 0)] = mean_producer_biomass/100
+FW_restored_new['y0'][coords['position'] == 'outside'][(FW_restored_new['y0'][coords['position'] == 'outside'] == 0) & (FW_restored_new['TL'] != 0)] = mean_consumer_biomass/100 
 
 
 patches = coords[coords['position'] == 'center']['Patch']
