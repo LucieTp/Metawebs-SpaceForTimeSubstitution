@@ -18,16 +18,22 @@ import matplotlib.pyplot as plt
 
 import pickle
 
+import seaborn as sb
+
 
 Stot = 100 # initial pool of species
 d = 1e-8
 
 
 
-def create_landscape(P, extent):
+def create_landscape(P, extent, radius_max, nb_center, seed):
     
     '''
-    Create landscape (x and y coordinates of each patch)
+    Create landscape (x and y coordinates of each patch with outside and middle patches.
+                      
+    nb_center middle patches are randomly scattered within a circle of radius_max 
+    centered around the central coordinates of the landscape.
+    Outside patches must fall outside of this circle. 
     
     Input the number of patch and extent of the landscape (consider that all lanscapes are 
                                                            square of dimensions LxL, thus extent 
@@ -41,11 +47,55 @@ def create_landscape(P, extent):
     
     '''
     
-    coords = pd.DataFrame()
+    coords = pd.DataFrame()        
+    
     for i in range(P):
-        np.random.seed(i)
-        coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':[np.random.uniform(extent[0], extent[1])],
-                                  'y':[np.random.uniform(extent[0], extent[1])]})))
+        seed_index = seed[i]
+        np.random.seed(seed_index)
+        
+        # if we have already drawn all the center point, we just draw random coordinates outside of the center
+        ## outside patches
+        if (i >= nb_center):
+            
+            y = np.random.uniform(extent[0], extent[1])
+            x = np.random.uniform(extent[0], extent[1])
+            
+            # convert to polar
+            r = np.sqrt((x - np.mean(extent))**2 + (y - np.mean(extent))**2)
+            
+            while(r < radius_max): # while the coordinates fall within the radius of the center points we resample coordinates
+                
+                seed_index+=1 # change random seed to get new set of coordinates
+                np.random.seed(seed_index)
+
+                x = np.random.uniform(extent[0], extent[1])
+                y = np.random.uniform(extent[0], extent[1])
+                
+                ## convert to polar and check radius again
+                r = np.sqrt((x - np.mean(extent))**2 + (y - np.mean(extent))**2)
+
+            coords = pd.concat((coords, pd.DataFrame({'Patch':[i], 'x':x, 'y':y, 'position': 'outside', 'seed':seed[i]})))
+        
+        ## middle patches
+        else:
+            
+            ## draw a random radius and a random angle 
+            # https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly/50746409#50746409
+            r = radius_max * np.sqrt(np.random.rand())
+            theta = np.random.rand() * 2 * np.pi
+            
+            # convert from polar to cartesian (referential = center of the landscape)
+            x = np.mean(extent) + r * np.cos(theta)
+            y = np.mean(extent) + r * np.sin(theta)
+
+            coords = pd.concat((coords, pd.DataFrame({'Patch':[i],'x':x, 'y':y, 'position': 'center', 'seed':seed[i]})))
+            
+    ### plot landscape map  
+    palette_colors = sb.color_palette("viridis", 15)
+    coords['Patch'] = coords['Patch'].astype('category')
+    sb.scatterplot(data = coords, x = 'x',y = 'y', hue = 'Patch', style = 'position', palette = palette_colors)
+    plt.scatter(x = np.mean(extent), y = np.mean(extent), s = 100, marker = 'X', c = 'black') # center of the landscape
+    plt.show()
     
     return(coords)
 
@@ -92,7 +142,7 @@ def get_distance(coords, extent):
 
 
 
-def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with one 'Patch' col with patch IDs, and coordinates under 'x' and 'y' cols
+def summarise_pop_dynamics(list_files, nb_patches, initial_files): ## coords = DataFrame with one 'Patch' col with patch IDs, and coordinates under 'x' and 'y' cols
     
     ## initialise DataFrames to save summary statistics
     FW_metrics = pd.DataFrame()
@@ -100,6 +150,9 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
     ## initialise index for plotting
     index = 0
     
+    
+    
+        
     for f in list_files:
         
         print(f)
@@ -114,16 +167,47 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
             
             
         s = sol_disturbed['sim'] ## simulation number
+        
+        ## get initial population dynamics file to compare before/after invasion/restoration
+        initial_file = [i for i in initial_files if f'sim{s}' in i][0]
+        
+        print(initial_file)
+        
+        if '.npy' in initial_file:
+            sol_init = np.load(initial_file, allow_pickle=True).item()
+        elif ".pkl" in initial_file:
+            with open(initial_file, 'rb') as file: 
+                sol_init = pickle.load(file)  
+            file.close()
+
+        FW_new = sol_init['FW_new'] ## subset food web (this goes with sp_ID_)
+        Stot_new = int(sol_init['y'].shape[1]/nb_patches) 
+        
+        solT = sol_init['t'] ## time
+        solY = sol_init['y'] ## biomasses
+        
+        # mean biomass across the last 5% of the time steps
+        thresh_high = solT[-1] # get higher time step boundary (tfinal)
+        thresh_low = (solT[-1] - (solT[-1] - solT[1])*0.05) # get lower time step boundary (tfinal - 5% * tfinal)
+
+        ## index of those time steps between low and high boundaries
+        index_bf = np.where((solT > thresh_low) & (solT <= thresh_high))[0]
+        ## biomasses over those 10% time steps
+        Bf_homogeneous_init = np.mean(solY[index_bf], axis = 0).reshape(nb_patches,Stot_new)
+        
+        
+        ## back to restored/invaded landscape
+        
         # FW_og = sol_disturbed['FW'] ## regional food web (this goes with sp_ID)
         FW_new = sol_disturbed['FW_new'] ## subset food web (this goes with sp_ID_)
         Stot_new = FW_new['Stot']
         coords = sol_disturbed['FW_new']['coords'] # get patch coordinates
 
-        count = np.unique(FW_new['y0'], return_counts=True)
-        y0_unique = count[0]
-        y0_count = count[1]
-        mean_biomasses = y0_unique[y0_count > 1]
-        FW_new['invaders'] = np.isin(FW_new['y0'], mean_biomasses)
+        # count = np.unique(FW_new['y0'], return_counts=True)
+        # y0_unique = count[0]
+        # y0_count = count[1]
+        # mean_biomasses = y0_unique[y0_count > 1]
+        # FW_new['invaders'] = np.isin(FW_new['y0'], mean_biomasses)
  
         patch_improved = np.where(sol_disturbed['deltaR'] > 0.5)[0]
         
@@ -157,15 +241,17 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
         # array of True of False, whether each species went extinct during the experiment
         extinct2 = np.repeat(False,Stot_new) # in any patch
         extinct1 = np.repeat(False,Stot_new*nb_patches) # in a given patch
-        if ((FW_new['y0'] > 0) & (Bf1 == 0)).any():
+        if ((Bf_homogeneous_init > 0) & (Bf1 == 0)).any():
             for j in range(nb_patches):
-                extinct2 = extinct2 | (FW_new['y0'][j] > 0) & (Bf1[j] == 0)
-                extinct1[j*Stot_new:(j*Stot_new + Stot_new)] = (FW_new['y0'][j] > 0) & (Bf1[j] == 0)
-        
-        
+                extinct2 = extinct2 | (Bf_homogeneous_init[j] > 0) & (Bf1[j] == 0)
+                extinct1[j*Stot_new:(j*Stot_new + Stot_new)] = (Bf_homogeneous_init[j] > 0) & (Bf1[j] == 0)
+
         prop_regional = Bf1[Bf1 > 0]/np.sum(Bf1[Bf1 > 0])
         S_regional = Bf1.shape[1]
         prop_local_all = Bf1/np.repeat(np.sum(Bf1, axis = 1),S_regional).reshape(nb_patches,S_regional)
+        
+        # successful_invaders = (Bf1 > 0) & (FW_new['y0'] == 0) # with as baseline the invaded initial communities
+        successful_invaders_initial_pop = (Bf1 > 0) & (Bf_homogeneous_init == 0) # with baseline initial communities
 
     
         for p in range(nb_patches):
@@ -179,7 +265,14 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
             
             surviving_sp = np.where(Bf1[p]>0)[0]
             local_FW = FW_new['M'][Bf1[p]>0,:][:,Bf1[p]>0]
-                    
+
+            
+            #nb_invaders = len(np.where(successful_invaders[p])[0])
+            #nb_extinct = len(np.where(extinct1.reshape(nb_patches,Stot_new)[p])[0])
+            
+            nb_invaders_initial_pop = len(np.where(successful_invaders_initial_pop[p])[0])
+            nb_extinct_initial_pop = len(np.where(extinct1.reshape(nb_patches,Stot_new)[p])[0])
+            
             
             # summary table at the patch level (9 rows or 3 rows per simulation depending on the landscape)
             FW_metrics = pd.concat([FW_metrics, 
@@ -192,6 +285,13 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
                                                  'MeanTL_local': np.mean(FW_new['TL'][surviving_sp]), # mean trophic level of surviving species on patch p
                                                  
                                                  'simulation_length':sol_disturbed['t'][-1],
+                                                 
+                                                 # invasion
+                                                 #'nb_invaders':nb_invaders,
+                                                 #'nb_extinct':nb_extinct,
+                                                 
+                                                 'nb_invaders_initial_pop':nb_invaders_initial_pop,
+                                                 'nb_extinct_initial_pop':nb_extinct_initial_pop,
                                                   
                                                  ## diversity measures
 
@@ -239,7 +339,11 @@ def summarise_pop_dynamics(list_files, nb_patches): ## coords = DataFrame with o
                 'type':scenario_type, 'quality_ratio':ratio,
                 'nb_improved':len(patch_improved),
                 'patch':np.repeat(coords['Patch'],Stot_new), # patch ID
+                # 'restoration_type':sol_disturbed['restoration_type'], ## whether high quality patches are clustered or not
+                # 'restored_patches_seed':sol_disturbed['restoration_seed'], # seed used to generate the random patches to restore 
                 'Invaders':FW_new['invaders'].reshape(Stot_new*nb_patches),
+                'successful_invaders_initial_pop': successful_invaders_initial_pop.reshape(Stot_new*nb_patches),
+                #'successful_invaders': successful_invaders.reshape(Stot_new*nb_patches),
                 
                 ## coordinates
                 'x':np.repeat(coords['x'],Stot_new),
@@ -314,7 +418,7 @@ def summarise_initial_pop_dynamics(list_files, nb_patches): ## coords = DataFram
         else:
             scenario_type='heterogeneous'
             
-        y0 = FW_new['y0'].reshape(nb_patches*Stot_new) # intial population biomass (pre-disturbance)
+        y0 = FW_new['y0'].reshape(nb_patches*Stot_new) # population biomass after introducing the invaders
         
         
         # Bf1 = np.zeros(shape = (nb_patches,Stot_new)) # post-disturbance pop biomasses

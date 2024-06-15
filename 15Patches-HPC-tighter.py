@@ -837,7 +837,7 @@ FW = stableFW[k]
 
 
 ## create three patches distant enough that all species can't cross all the way through
-extentx = [0,0.55]
+extentx = [0,0.4]
 radius_max = 0.1
 
 ## surface of the circle
@@ -882,7 +882,7 @@ B_init = FW_new['y0']
 
 import os
 
-path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_seed{seed_index}_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl'
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_seed{seed_index}_narrow_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl'
 if not os.path.exists(path):
 
     print('Homogeneous - initial run',s)
@@ -951,12 +951,12 @@ if not os.path.exists(path):
                                 'sim_duration':sim_duration
                                 })
         
-        with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_seed{seed_index}_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl', 'wb') as file:  # open a text file
+        with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_seed{seed_index}_narrow_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl', 'wb') as file:  # open a text file
             pickle.dump(sol_homogeneous, file, protocol=4) # serialize the list
         file.close()
         
         # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/InitialPopDynamics_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.npy',sol_homogeneous, allow_pickle = True)
-        res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/ResultsInitial_seed{seed_index}_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
+        res_sim_homogeneous.to_csv(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/ResultsInitial_seed{seed_index}_narrow_sim{s}_{P}Patches_{Stot}sp_{C}C_homogeneous.csv')
 
     
 
@@ -1010,8 +1010,8 @@ FW_restored_new = FW_new.copy()
 FW_restored_new['y0'] = Binit_restored
 
 
-path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
-path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_narrow_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
+path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_narrow_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
 
 if not os.path.exists(path) and not os.path.exists(path_pkl) :
     print('Control')
@@ -1042,7 +1042,7 @@ if not os.path.exists(path) and not os.path.exists(path_pkl) :
                         'q':q
                         })
     
-    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
+    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-PopDynamics_homogeneous_seed{seed_index}_narrow_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
         pickle.dump(sol_control, file, protocol=4) # serialize the list
     file.close()
     
@@ -1068,8 +1068,8 @@ temp[np.where(temp == 0)] = mean_biomass/100
 FW_restored_new['y0'][patch_to_invade] = temp
 
 
-path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-CornerPatch-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
-path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-CornerPatch-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
+path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-CornerPatch-PopDynamics_homogeneous_seed{seed_index}_narrow_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy'
+path_pkl = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-CornerPatch-PopDynamics_homogeneous_seed{seed_index}_narrow_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
 
 if not os.path.exists(path) and not os.path.exists(path_pkl) :
     print('Control - invasion')
@@ -1102,12 +1102,79 @@ if not os.path.exists(path) and not os.path.exists(path_pkl) :
                         'q':q
                         })
     
-    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-CornerPatch-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
+    with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-CornerPatch-PopDynamics_homogeneous_seed{seed_index}_narrow_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
         pickle.dump(sol_control, file, protocol=4) # serialize the list
     file.close()
     
     # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Homogeneous/sim{s}/CONTROL-invasion-PopDynamics_homogeneous_seed{seed_index}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_control, allow_pickle = True)
 
+# patches to improve
+list_config = [coords[coords['position'] == 'center']['Patch']]
+for seed in np.arange(5): ## draw 5 random patches to improve across the landscape
+    np.random.seed(seed)
+    list_config = list_config + [np.random.randint(0, 15, 5)] # random number between [0,15)
+    
+
+for config in list_config:
+    
+    patch_to_improve = [] ## initialise list of patches to improve
+    for patch in config:
+        
+        # start with one patch, then add the 4 others one by one
+        patch_to_improve = patch_to_improve + [patch]
+        
+        y0 = FW_restored_new['y0'].reshape(P*Stot_new)
+        harvesting = np.zeros(shape = (P, Stot_new))  
+        
+        path = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/PopDynamics_heterogeneous-invasion-CornerPatch_seed{seed_index}_narrow_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
+        path_notStabilised = f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}.npy'
+    
+        if not os.path.exists(path) and not os.path.exists(path_notStabilised):
+            
+            print('patch improved:', patch_to_improve, flush=True)
+            
+            deltaR[patch_to_improve] = 1.5
+                
+            # run dynamics from equilibrium Bf_disturbed
+            # Bf_disturbed = Bf_disturbed.reshape(P*Stot_new,)
+            
+            start = time.time()   
+            sol_heterogeneous_restored = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1, -1, 0, s)
+            stop = time.time()   
+            print(stop - start)
+                
+            if sol_heterogeneous_restored != 'Did not stabilise after 12 hours':
+            
+                sol_heterogeneous_restored.update({'FW':FW, ## initial food web before any reduction
+                                                   'type':ty, ## type of landscape
+                                                   'B_init': B_init, ## very first initialisation of biomasses
+                                                   'B_final_homogeneous': Bf_homogeneous, ## biomass after first initial run on homogeneous landscape (pre-restoration / invasion)
+                                                   'FW_new':FW_restored_new, ## Reduced food web with only regionally extant species after intial run - used for invasion/restoration experiment
+                                                   'Stot_new':Stot_new, ## regional species richness (dimensions of FW_new)
+                                                   "sim":s, ## Food web ID number
+                                                   'FW_ID':k, ## 
+                                                   "FW_file":f, ## food web file
+                                                   "disp":disp_new, ## species maximal dispersal
+                                                   "harvesting":harvesting, ## species harvesting 
+                                                   "deltaR":deltaR, ## patch quality
+                                                   'tstart':tstart, ## start time of restoration 
+                                                   'runtime':runtime, ## maximum runtime allowed
+                                                   'q':q, ## hill number
+                                                   'patch_to_improve':patch_to_improve ## ID of patch(es) with higher quality
+                                                   })
+                # np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/DisturbedP{patch}PopDynamics_heterogeneous_seed{seed_index}_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_heterogeneous_restored, allow_pickle = True)
+                
+                print('Types ',[type(sol_heterogeneous_restored[k]) for k in sol_heterogeneous_restored.keys()], flush=True)
+                print('keys ',sol_heterogeneous_restored.keys(), flush=True)
+                print(sol_heterogeneous_restored, flush=True)
+    
+                with open(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/Heterogeneous/sim{s}/PopDynamics_heterogeneous-invasion-CornerPatch_seed{seed_index}_narrow_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl', 'wb') as file:  # open a text file
+                    pickle.dump(sol_heterogeneous_restored, file, protocol=4) # serialize the list
+                file.close()
+                # save final biomass density after perturbation and plot dynamics
+          
+
+## scattering randomly patches to improve
 # patches to improve
 list_patches_to_restore = [coords[coords['position'] == 'center']['Patch']]
 list_restoration_types = ['clustered']  
@@ -1181,4 +1248,3 @@ for patches_to_restore, restoration_type, restoration_seed in zip(list_patches_t
                     pickle.dump(sol_heterogeneous_restored, file, protocol=4) # serialize the list
                 file.close()
                 # save final biomass density after perturbation and plot dynamics
-          
