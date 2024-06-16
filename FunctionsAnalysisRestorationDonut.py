@@ -165,7 +165,19 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files): ## coords = D
                 sol_disturbed = pickle.load(file)  
             file.close()
             
-            
+        if 'CONTROL' in f:
+            restoration_type = None ## whether high quality patches are clustered or not
+            restored_patches_seed = None # seed used to generate the random patches to restore 
+        else :
+            if 'clustered' in f :
+                restoration_type = 'clustered' ## whether high quality patches are clustered or not
+                restored_patches_seed = None
+            elif 'scattered' in f:
+                restoration_type = 'scattered' ## whether high quality patches are clustered or not
+                pattern = r'restoration_seed(\d+)'
+                match = re.search(pattern, f) # seed used to generate the random patches to restore 
+                restored_patches_seed = match.group(1)
+                
         s = sol_disturbed['sim'] ## simulation number
         
         ## get initial population dynamics file to compare before/after invasion/restoration
@@ -220,6 +232,10 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files): ## coords = D
         else:
             scenario_type='heterogeneous'
         
+        
+
+
+        
         # Bf1 = np.zeros(shape = (nb_patches,Stot_new)) # post-disturbance pop biomasses
         
         ## go through each patch in turn and summarise food web characteristics and species'
@@ -254,6 +270,7 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files): ## coords = D
         successful_invaders_initial_pop = (Bf1 > 0) & (Bf_homogeneous_init == 0) # with baseline initial communities
 
     
+    
         for p in range(nb_patches):
        
             ind = p + 1
@@ -278,6 +295,9 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files): ## coords = D
             FW_metrics = pd.concat([FW_metrics, 
                                    pd.DataFrame({'file':f, 'sim':s, 'patch':p, 'nb_improved':len(patch_improved), 
                                                  'type':scenario_type, 'quality_ratio':ratio,
+                                                 'restoration_type':restoration_type, ## whether high quality patches are clustered or not
+                                                 'restored_patches_seed':restored_patches_seed, # seed used to generate the random patches to restore 
+
                                                  'S_regional':S_regional,
                                                  'S_local':len(surviving_sp), 'C_local': np.sum(local_FW),
                                                  'MeanGen_local': np.mean(np.sum(local_FW, axis = 0)),
@@ -339,8 +359,8 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files): ## coords = D
                 'type':scenario_type, 'quality_ratio':ratio,
                 'nb_improved':len(patch_improved),
                 'patch':np.repeat(coords['Patch'],Stot_new), # patch ID
-                # 'restoration_type':sol_disturbed['restoration_type'], ## whether high quality patches are clustered or not
-                # 'restored_patches_seed':sol_disturbed['restoration_seed'], # seed used to generate the random patches to restore 
+                'restoration_type':restoration_type, ## whether high quality patches are clustered or not
+                'restored_patches_seed':restored_patches_seed, # seed used to generate the random patches to restore 
                 'Invaders':FW_new['invaders'].reshape(Stot_new*nb_patches),
                 'successful_invaders_initial_pop': successful_invaders_initial_pop.reshape(Stot_new*nb_patches),
                 #'successful_invaders': successful_invaders.reshape(Stot_new*nb_patches),

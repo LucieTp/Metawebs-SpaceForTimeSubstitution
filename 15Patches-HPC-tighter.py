@@ -1141,6 +1141,7 @@ for patches_to_restore, restoration_type, restoration_seed in zip(list_patches_t
             
             print('patch improved:', patch_to_improve, flush=True)
             
+            deltaR = np.repeat(0.5,P)
             deltaR[patch_to_improve] = 1.5
                 
             # run dynamics from equilibrium Bf_disturbed
