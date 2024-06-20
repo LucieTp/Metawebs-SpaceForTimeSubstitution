@@ -405,18 +405,18 @@ os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches')
 
 res15_invasion = pd.read_csv(f'ResultsHeterogeneous-seed3-narrow-invasion-CornerPatch_sim_{P}Patches_{Stot}sp_{C}C.csv')
 FW15_invasion = pd.read_csv(f'ResultsHeterogeneous-seed3-narrow-invasion-CornerPatch-FoodwebMetrics_sim_{P}Patches_{Stot}sp_{C}C.csv')
-res15_invasion['landscape'] = 'donut'
-FW15_invasion['landscape'] = 'donut'
+res15_invasion['landscape'] = 'normal'
+FW15_invasion['landscape'] = 'normal'
 res15_invasion['stage'] = 'restored'
 FW15_invasion['stage'] = 'restored'
 
 
 res15_control_invasion_normal = pd.read_csv(f'Control-Invasion-seed3-narrow-CornerPatch-handmade_sim_{P}Patches_{Stot}sp_{C}C.csv')
 FW15_control_invasion_normal = pd.read_csv(f'Control-Invasion-seed3-narrow-CornerPatch-FoodwebMetrics-handmade_sim_{P}Patches_{Stot}sp_{C}C.csv')
-res15_control_invasion_normal['landscape'] = 'donut'
-FW15_control_invasion_normal['landscape'] = 'donut'
-res15_control_invasion_normal['stage'] = 'before'
-FW15_control_invasion_normal['stage'] = 'before'
+res15_control_invasion_normal['landscape'] = 'normal'
+FW15_control_invasion_normal['landscape'] = 'normal'
+res15_control_invasion_normal['stage'] = 'control'
+FW15_control_invasion_normal['stage'] = 'control'
 
 res15_invasion_normal = pd.concat([res15_control_invasion_normal, res15_invasion[np.isin(res15_invasion['sim'], np.unique(res15_control_invasion_normal['sim']))]])
 FW15_invasion_normal = pd.concat([FW15_control_invasion_normal, FW15_invasion[np.isin(FW15_invasion['sim'], np.unique(FW15_control_invasion_normal['sim']))]])
@@ -428,7 +428,7 @@ FW15_invasion_normal = pd.concat([FW15_control_invasion_normal, FW15_invasion[np
 
 # %% Plots
 
-
+res15_invasion_normal.groupby(['sim','restoration_type','nb_improved']).agg({'B_final':['mean','count', np.std]})
 
 
 # %%% Corner landscape
@@ -436,8 +436,16 @@ FW15_invasion_normal = pd.concat([FW15_control_invasion_normal, FW15_invasion[np
 ## Landscape-level:
     
 ## Landscape-level species richness
-ax = sb.stripplot(data = FW15_invasion_normal, y = 'S_local', hue = 'patch', x = 'nb_improved', palette = palette_colors)
-sb.pointplot(data = FW15_invasion_normal, y = 'S_local', hue = 'patch', x = 'nb_improved', scale = 0.5, palette = palette_colors,
+ax = sb.stripplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                              (FW15_invasion_normal['nb_improved'] == 0)], y = 'S_local', 
+                  hue = 'patch', x = 'nb_improved', palette = palette_colors)
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0)], y = 'S_local', 
+             hue = 'patch', x = 'nb_improved', linestyles = '-', scale = 0.5, palette = palette_colors,
+              ax = ax, errorbar = None)
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'scattered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0)], y = 'S_local', 
+             hue = 'patch', x = 'nb_improved', linestyles = '--', scale = 0.5, palette = palette_colors,
               ax = ax, errorbar = None)
 plt.setp(ax.lines, zorder=100) # to have the pointplot on top
 plt.setp(ax.collections, zorder=100)
@@ -480,8 +488,14 @@ ax.legend(bbox_to_anchor = [1,1])
 
 ## Number of invasions
 ax = sb.stripplot(data = FW15_invasion_normal, y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', palette = palette_colors)
-sb.pointplot(data = FW15_invasion_normal, y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', scale = 0.5, palette = palette_colors,
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                              (FW15_invasion_normal['nb_improved'] == 0)], 
+             y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', scale = 0.5, palette = palette_colors,
               ax = ax, errorbar = None)
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'scattered') | 
+                                              (FW15_invasion_normal['nb_improved'] == 0)], 
+             y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', scale = 0.5, 
+             palette = palette_colors, linestyles = '--', ax = ax, errorbar = None)
 plt.setp(ax.lines, zorder=100) # to have the pointplot on top
 plt.setp(ax.collections, zorder=100)
 
@@ -490,8 +504,14 @@ ax.legend(bbox_to_anchor = [1,1])
 
 ## Number of invasions
 ax = sb.stripplot(data = FW15_invasion_normal, y = 'nb_extinct_initial_pop', hue = 'patch', x = 'nb_improved', palette = palette_colors)
-sb.pointplot(data = FW15_invasion_normal, y = 'nb_extinct_initial_pop', hue = 'patch', x = 'nb_improved', style = 'position', scale = 0.5, palette = palette_colors,
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                              (FW15_invasion_normal['nb_improved'] == 0)], 
+             y = 'nb_extinct_initial_pop', hue = 'patch', x = 'nb_improved', scale = 0.5, palette = palette_colors,
               ax = ax, errorbar = None)
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'scattered') | 
+                                              (FW15_invasion_normal['nb_improved'] == 0)], 
+             y = 'nb_extinct_initial_pop', hue = 'patch', x = 'nb_improved', scale = 0.5, 
+             palette = palette_colors, linestyles = '--', ax = ax, errorbar = None)
 plt.setp(ax.lines, zorder=100) # to have the pointplot on top
 plt.setp(ax.collections, zorder=100)
 
@@ -499,9 +519,36 @@ ax.legend(bbox_to_anchor = [1,1])
 
 
 
+## Landscape-level biomass
+ax = sb.stripplot(data = res15_invasion_normal, y = 'B_final', 
+                  hue = 'restoration_type', x = 'nb_improved', palette = palette_colors, dodge = True)
+plt.setp(ax.lines, zorder=100) # to have the pointplot on top
+plt.setp(ax.collections, zorder=100)
+
+ax.legend(bbox_to_anchor = [1,1])
+
+
+
+## Landscape-level mean TL
+ax = sb.stripplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                              (FW15_invasion_normal['nb_improved'] == 0)], y = 'MeanTL_local', 
+                  hue = 'patch', x = 'nb_improved', palette = palette_colors)
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0)], y = 'MeanTL_local', 
+             hue = 'patch', x = 'nb_improved', linestyles = '-', scale = 0.5, palette = palette_colors,
+              ax = ax, errorbar = None)
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'scattered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0)], y = 'MeanTL_local', 
+             hue = 'patch', x = 'nb_improved', linestyles = '--', scale = 0.5, palette = palette_colors,
+              ax = ax, errorbar = None)
+plt.setp(ax.lines, zorder=100) # to have the pointplot on top
+plt.setp(ax.collections, zorder=100)
+
+ax.legend(bbox_to_anchor = [1,1])
+
 
 # %%% Change in species composition
-s = 3
+s = 8
 
 for p in range(P):
 
@@ -515,20 +562,6 @@ for p in range(P):
     plt.title(f"{p} - {S_local}")
 
 plt.savefig('D:/TheseSwansea/SFT/Figures/CommunityCompo.png', dpi = 400, bbox_inches = 'tight')
-
-
-for p in range(P):
-
-    ind = p + 1
-        
-    S_local = np.unique(FW15_control_invasion_corner['S_local'][(FW15_control_invasion_corner['sim'] == s) & (FW15_control_invasion_corner['patch'] == p)])
-    plt.subplot(3, 5, ind)
-    plt.pie(data = res15_control_invasion_corner[(res15_control_invasion_corner['sim'] == s) & (res15_control_invasion_corner['B_final'] > 0) & (res15_control_invasion_corner['patch'] == p)], 
-               x = 'B_final', labels = "sp_ID", colors = sb.color_palette('pastel'), autopct='%.0f%%',
-               textprops={'fontsize': 5})
-    plt.title(f"{p} - {S_local}")
-
-plt.savefig('D:/TheseSwansea/SFT/Figures/CommunityCompo-CornerPatch.png', dpi = 400, bbox_inches = 'tight')
 
 
 for p in range(P):

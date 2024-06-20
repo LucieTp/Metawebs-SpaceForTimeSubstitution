@@ -20,6 +20,8 @@ import pickle
 
 import seaborn as sb
 
+import networkx as nx
+
 
 Stot = 100 # initial pool of species
 d = 1e-8
@@ -166,12 +168,12 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files): ## coords = D
             file.close()
             
         if 'CONTROL' in f:
-            restoration_type = None ## whether high quality patches are clustered or not
-            restored_patches_seed = None # seed used to generate the random patches to restore 
+            restoration_type = 'None' ## whether high quality patches are clustered or not
+            restored_patches_seed = np.nan # seed used to generate the random patches to restore 
         else :
             if 'clustered' in f :
                 restoration_type = 'clustered' ## whether high quality patches are clustered or not
-                restored_patches_seed = None
+                restored_patches_seed = np.nan
             elif 'scattered' in f:
                 restoration_type = 'scattered' ## whether high quality patches are clustered or not
                 pattern = r'restoration_seed(\d+)'
@@ -464,9 +466,7 @@ def summarise_initial_pop_dynamics(list_files, nb_patches): ## coords = DataFram
 
         
         for p in range(nb_patches):
-       
-            ind = p + 1
-            
+                   
             prop_local = Bf1[p][Bf1[p]>0]/np.sum(Bf1[p][Bf1[p]>0])
             
             ### get local food web characteristics
@@ -483,7 +483,15 @@ def summarise_initial_pop_dynamics(list_files, nb_patches): ## coords = DataFram
                                                  'MeanGen_local': np.mean(np.sum(local_FW, axis = 0)),
                                                  'MeanVul_local': np.mean(np.sum(local_FW, axis = 1)),
                                                  'MeanTL_local': np.mean(FW_new['TL'][surviving_sp]), # mean trophic level of surviving species on patch p
-                                                  ## diversity measures
+                                                 'MeanTP_local': np.mean(FW_new['TP'][surviving_sp]), # mean trophic level of surviving species on patch p
+                                                 'Mfcl_local': MeanFoodChainLength(local_FW), # mean food chain length
+                                                 'MeanBodyMass_local': np.mean(FW_new['BS'][surviving_sp]), # mean body mass 
+                                                 'nb_top': len(np.where(FW_new['TL'][surviving_sp] == 3)[0]),
+                                                 'nb_int': len(np.where(FW_new['TL'][surviving_sp] == 2)[0]),
+                                                 'nb_herb': len(np.where(FW_new['TL'][surviving_sp] == 1)[0]),
+                                                 'nb_plants': len(np.where(FW_new['TL'][surviving_sp] == 0)[0]),
+
+                                                 ## diversity measures
 
                                                   # landscape level:
                                                   'gamma_diversity_shannon':-np.sum(prop_regional*np.log(prop_regional)), # regional diversity
@@ -914,6 +922,26 @@ def create_temporal_network(access, P):
 #         shortest_path.loc[i,'mean_success_rate'] = np.mean(shortest_path.loc[i,'success_rate'])
         
 #     return(shortest_path)
+    
+    
+def MeanFoodChainLength(FW):
+    
+    ## calculates the mean number of nodes between all species 
+    
+    fcl = []
+    G = nx.DiGraph(FW)
+    if G.number_of_nodes() == 0:
+        mfcl = 0
+    else:
+        for i in range(G.number_of_nodes()): # loop across all source nodes
+            for j in range(i,G.number_of_nodes()): # and across all target nodes 
+                if nx.has_path(G,i,j): # check that a path exists between the two nodes
+                    paths = nx.all_simple_paths(G, source=i, target=j) # record the number of nodes between source and target
+                    for p in paths:
+                        fcl.append(len(p))
+        mfcl = sum(fcl)/len(fcl)
+        
+    return(mfcl)    
     
     
     
