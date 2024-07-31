@@ -659,7 +659,7 @@ def TwoPatchesPredationBS_ivp_Kernel(y0,q,P,S,FW,d,deltaR,harvesting,tfinal,tini
 # and stops the simulations when that conditions is reached
 # =============================================================================
 
-def run_dynamics(y0,tinit,runtime,q,P,Stot,FW,disp,deltaR,harvesting,patch,sp,disturbance,s,sol_save={}):
+def run_dynamics(y0,tinit,runtime,q,P,Stot,FW,disp,deltaR,harvesting,patch,landscape_seed,s,stage,sol_save={}):
     status = 10
     tstart = tinit
     stabilised = False
@@ -755,11 +755,6 @@ def run_dynamics(y0,tinit,runtime,q,P,Stot,FW,disp,deltaR,harvesting,patch,sp,di
             y0 = sol.y[-1].copy() # get latest vector of biomass
             y0[ID] = 0
             
-            
-            if sp*(patch+1) in ID:
-                harvesting[patch][sp] = 0 # can't harvest an extinct species (otherwise yields negative biomasses)
-            else:
-                harvesting[patch][sp] = disturbance
         
         if count%200 == 0: # save progress every 200 extinctions
         
@@ -771,16 +766,16 @@ def run_dynamics(y0,tinit,runtime,q,P,Stot,FW,disp,deltaR,harvesting,patch,sp,di
     
             ## save results
             sol_save_temp.update({'FW_new':FW, 'type':ty, "sim":s,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'q':q})
-            np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/{ty}/sim{s}/temp_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_save_temp, allow_pickle = True)
+            np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/{ty}/sim{s}/temp_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.npy',sol_save_temp, allow_pickle = True)
         
         ## simulation is taking too long we stop it - save it as a seperate file 
         ## need to investigate what is going on 
         if time.time() - start > 60*60*12:
-            print(f'Took more than 12 hours - skipping sim {s}, patch {patch}, sp {sp}, {ty}')
+            print(f'Took more than 12 hours - skipping sim {s}, patch {patch}, {ty}')
             
             ## save results
             sol_save_temp.update({'FW_new':FW, 'type':ty, "sim":s,"disp":disp,"harvesting":harvesting,"deltaR":deltaR,'q':q})
-            np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/{ty}/sim{s}/NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot100_C{int(C*100)}_disturbance{disturbance}_{sp}SpDisturbed.npy',sol_save_temp, allow_pickle = True)
+            np.save(f'/lustrehome/home/s.lucie.thompson/Metacom/{P}Patches/{ty}/sim{s}/NotStabilised_{stage}_landscape_{landscape_seed}_PatchRestored{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot100_C{int(C*100)}.npy',sol_save_temp, allow_pickle = True)
 
             return 'Did not stabilise after 12 hours'
         
@@ -890,6 +885,7 @@ radius_max = 0.05
 ((radius_max**2)*np.pi)/(0.5*0.5)
 ## surface of the landscape
 
+stage = 'Init'
 
 for seed_index in [0,1,3,2,4,5]:
 
@@ -934,13 +930,14 @@ for seed_index in [0,1,3,2,4,5]:
     init_files = np.loadtxt(path_files, delimiter = ",", dtype = str)
     
     file_name = f'InitialPopDynamics_seed{seed_index}_narrow_homogeneous_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{tmax}r.pkl'
+    NotStabilised_filename = f'NotStabilised_{stage}_landscape_{seed_index}_PatchRestored-1_PopDynamics_homogeneous_sim{s}_{P}Patches_Stot100_C{int(C*100)}.npy'
     
-    if file_name not in init_files:
+    if file_name not in init_files and NotStabilised_filename not in init_files:
     
         print('Homogeneous - initial run',s)
         
         start = time.time()    
-        sol_homogeneous = run_dynamics(FW_new['y0'].reshape(Stot_new*P,),0,tmax,q,P,Stot_new,FW_new,disp_new,deltaR,harvesting,-1,-1,0,s)
+        sol_homogeneous = run_dynamics(FW_new['y0'].reshape(Stot_new*P,),0,tmax,q,P,Stot_new,FW_new,disp_new,deltaR,harvesting,-1,seed_index,s,'Init')
         stop = time.time() 
         sim_duration = stop - start
         print(sim_duration)
@@ -1071,7 +1068,7 @@ for seed_index in [0,1,3,2,4,5]:
         
         ## in the control - the invasive species should not be able to invade 
         start = time.time()   
-        sol_control = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1,-1,0, s)
+        sol_control = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1,seed_index, s, 'control')
         stop = time.time()   
         sim_duration = stop - start
         print(sim_duration)
@@ -1135,7 +1132,7 @@ for seed_index in [0,1,3,2,4,5]:
         
         ## in the control - the invasive species should not be able to invade 
         start = time.time()   
-        sol_control = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1,-1,0, s)
+        sol_control = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1,seed_index, s, 'control_invasion')
         stop = time.time() 
         sim_duration = stop - start
         print(sim_duration)
@@ -1184,6 +1181,8 @@ for seed_index in [0,1,3,2,4,5]:
     y0 = FW_restored_new['y0'].reshape(P*Stot_new)
     harvesting = np.zeros(shape = (P, Stot_new))  
     
+    stage = 'restoration'
+    
     for patches_to_restore, restoration_type, restoration_seed in zip(list_patches_to_restore, list_restoration_types, list_seeds):
         
         patch_to_improve = [] ## initialise list of patches to improve
@@ -1200,7 +1199,7 @@ for seed_index in [0,1,3,2,4,5]:
             improved_files = np.loadtxt(path_files, delimiter = ",", dtype = str)
             
             improved_file_name = f'PopDynamics_heterogeneous-invasion-CornerPatch_narrow_seed{seed_index}-restoration_seed{restoration_seed}_{restoration_type}_patchImproved{patch}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}_t{runtime}.pkl'
-            path_notStabilised = f'NotStabilised_Patch{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot{Stot}_C{int(C*100)}.npy'
+            path_notStabilised = f'NotStabilised_{stage}_landscape_{seed_index}_PatchRestored{patch}_PopDynamics_{ty}_sim{s}_{P}Patches_Stot100_C{int(C*100)}.npy'
 
             
             if improved_file_name not in improved_files and path_notStabilised not in improved_files:    
@@ -1214,7 +1213,7 @@ for seed_index in [0,1,3,2,4,5]:
                 # Bf_disturbed = Bf_disturbed.reshape(P*Stot_new,)
                 
                 start = time.time()   
-                sol_heterogeneous_restored = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, -1, -1, 0, s)
+                sol_heterogeneous_restored = run_dynamics(y0, tstart, tinit + runtime, q, P, Stot_new, FW_restored_new, disp_new, deltaR, harvesting, patch, seed_index, s, 'restoration')
                 stop = time.time() 
                 sim_duration = stop - start
                 print(sim_duration)

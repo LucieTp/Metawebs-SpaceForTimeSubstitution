@@ -41,8 +41,12 @@ import FunctionsAnalysisRestorationDonut as fn
 os.chdir('D:/TheseSwansea/Patch-Models/Script')
 import FunctionsPatchModel as fnPM
 
-f = "D:/TheseSwansea/PatchModels/outputs/S100_C10/StableFoodWebs_55persist_Stot100_C10_t10000000000000.npy"
+f = "D:/TheseSwansea/Patch-Models/S100_C10/StableFoodWebs_55persist_Stot100_C10_t10000000000000.npy"
 stableFW = np.load(f, allow_pickle=True).item()
+
+palette_colors = sb.color_palette(cc.glasbey, 15)
+sb.palplot(palette_colors)
+plt.show()
 
 
 Stot = 100 # initial pool of species
@@ -63,20 +67,23 @@ radius_max = 0.1
 ## surface of the circle
 ((radius_max**2)*np.pi)/(0.5*0.5)
 
-seed_index = 3
-seed = np.arange(P*seed_index, P*(seed_index + 1))
-coords_seed3 = fn.create_landscape(P, extentx, radius_max, 5, seed = seed)
 
-palette_colors = sb.color_palette(cc.glasbey, 15)
-sb.palplot(palette_colors)
-plt.show()
+for seed_index in [0,1,3,2,4,5]:
+
+    seed = np.arange(P*seed_index, P*(seed_index + 1))
+    coords = fn.create_landscape(P = P, extent = extentx, radius_max = radius_max, nb_center = 5, seed = seed)
+    
+    
+    plt.figure(figsize=(5,5))
+    sb.scatterplot(data = coords, x = 'x',y = 'y', hue = 'Patch', style = 'position', palette = palette_colors)
+    plt.scatter(x = np.mean(extentx), y = np.mean(extentx), s = 100, marker = 'X', c = 'black') # center of the landscape
+    plt.legend(bbox_to_anchor = [1,1.1])
+    plt.ylim(0,0.4)
+    plt.xlim(0,0.4)
+    plt.savefig(f'D:/TheseSwansea/SFT/Figures/seed{seed_index}-Landscape.png', dpi = 400, 
+                bbox_inches = 'tight')
 
 
-sb.scatterplot(data = coords_seed3, x = 'x',y = 'y', hue = 'Patch', style = 'position', palette = palette_colors)
-plt.scatter(x = np.mean(extentx), y = np.mean(extentx), s = 100, marker = 'X', c = 'black') # center of the landscape
-plt.legend(bbox_to_anchor = [1,1.1])
-
-plt.savefig('D:/TheseSwansea/SFT/Figures/seed3-Landscape.png', dpi = 400, bbox_inches = 'tight')
 
 
 # %% writing file names to csv file
@@ -86,7 +93,7 @@ import csv
 
 # Define the directory you want to list files from
 os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Homogeneous/seed3/narrow')
-init_15P_files = [i for i in os.listdir() if '.pkl' in i and 'InitialPopDynamics' in i]
+init_15P_files = [i for i in os.listdir() if 'InitialPopDynamics' in i or 'NotStabilised_Init' in i]
 
 
 # Define the CSV file name
@@ -122,7 +129,7 @@ with open(csv_file_name, 'w', newline='') as csvfile:
 
 ## restored
 os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/CornerPatch/narrow')
-het_15P_files_invasion = [i for i in os.listdir() if '.pkl' in i and 'patchImproved' in i]
+het_15P_files_invasion = [i for i in os.listdir() if 'patchImproved' in i or 'NotStabilised_restoration' in i]
 
 csv_file_name = 'D:/TheseSwansea/Patch-Models/outputs/15Patches/improved_files_15Patches_narrow.csv'
 
@@ -314,8 +321,8 @@ for f in control_invasion_15P_files:
     
 #%%%% invasion - restoration - corner patch
 
-os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/CornerPatch')
-invasion_15P_files = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/CornerPatch/'+i for i in 
+os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/CornerPatch/narrow/')
+invasion_15P_files = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/CornerPatch/narrow/'+i for i in 
                               os.listdir() if '.pkl' in i and 'invasion' in i]
 
 
@@ -432,7 +439,6 @@ os.chdir('D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/inv
 het_15P_files_invasion = ['D:/TheseSwansea/Patch-Models/outputs/15Patches/Heterogeneous/seed3/invasion/CornerPatch/narrow/'+i for i in os.listdir() if '.pkl' in i and 'patchImproved' in i]
 
 
-
 # run summary statistics function (above)
 res15, FW15 = fn.summarise_pop_dynamics(list_files=het_15P_files_invasion, nb_patches=P, 
                                         initial_files=init_15P_files)
@@ -490,11 +496,30 @@ FW15_invasion_normal = pd.concat([FW15_invasion_normal, FW15_init_normal])
 
 
 
+list_sim = [0,1,2,6,9] ## keep only simulations that ran all the way
+
+res15_invasion_normal.shape
+res15_invasion_normal = res15_invasion_normal[np.isin(res15_invasion_normal['sim'], list_sim)]
+res15_invasion_normal.shape
+
+FW15_invasion_normal = FW15_invasion_normal[np.isin(FW15_invasion_normal['sim'], list_sim)]
+
+
+
+FW15_invasion_normal['restoration_type'][FW15_invasion_normal['stage'] == 'control'] = 'control'
 
 
 # %% Plots
 
-x = res15_invasion_normal.groupby(['sim','restoration_type','nb_improved','landscape_seed']).agg({'B_final':['mean','count', np.std]})
+x = res15_invasion_normal.groupby(['sim','restoration_type','nb_improved','landscape_seed']).agg({'B_final':['mean','count', 'std']})
+
+
+FW15_invasion_normal.groupby(['nb_improved']).agg({'S_local':['mean','count', 'std']})
+
+
+
+
+
 
 
 # %%% Corner landscape
@@ -502,15 +527,18 @@ x = res15_invasion_normal.groupby(['sim','restoration_type','nb_improved','lands
 ## Landscape-level:
     
 ## Landscape-level species richness
-ax = sb.stripplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
-                                              (FW15_invasion_normal['nb_improved'] == 0)], y = 'S_local', 
+ax = sb.stripplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init') &
+                                              ((FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                              (FW15_invasion_normal['nb_improved'] == 0))], y = 'S_local', 
                   hue = 'patch', x = 'nb_improved', palette = palette_colors)
-sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
-                                          (FW15_invasion_normal['nb_improved'] == 0)], y = 'S_local', 
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init') &
+                                         ((FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0))], y = 'S_local', 
              hue = 'patch', x = 'nb_improved', linestyles = '-', scale = 0.5, palette = palette_colors,
               ax = ax, errorbar = None)
-sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'scattered') | 
-                                          (FW15_invasion_normal['nb_improved'] == 0)], y = 'S_local', 
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init') &
+                                          ((FW15_invasion_normal['restoration_type'] == 'scattered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0))], y = 'S_local', 
              hue = 'patch', x = 'nb_improved', linestyles = '--', scale = 0.5, palette = palette_colors,
               ax = ax, errorbar = None)
 plt.setp(ax.lines, zorder=100) # to have the pointplot on top
@@ -518,6 +546,18 @@ plt.setp(ax.collections, zorder=100)
 
 ax.legend(bbox_to_anchor = [1,1])
 
+
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], y = 'S_local', 
+             hue = 'landscape_seed', x = 'nb_improved', scale = 0.5, 
+             palette = palette_colors)
+
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], y = 'S_local', 
+             hue = 'restoration_type', x = 'nb_improved', scale = 0.5, 
+             palette = palette_colors)
+
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], y = 'S_local', 
+             hue = 'sim', x = 'nb_improved', scale = 0.5, 
+             palette = palette_colors)
 
 '''
 The landscape is scattered enough that the improvements to the middle patches only 
@@ -553,19 +593,28 @@ ax.legend(bbox_to_anchor = [1,1])
 
 
 ## Number of invasions
-ax = sb.stripplot(data = FW15_invasion_normal, y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', palette = palette_colors)
-sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'clustered') | 
-                                              (FW15_invasion_normal['nb_improved'] == 0)], 
+ax = sb.stripplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', palette = palette_colors)
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init') &
+                                         ((FW15_invasion_normal['restoration_type'] == 'clustered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0))], 
              y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', scale = 0.5, palette = palette_colors,
               ax = ax, errorbar = None)
-sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] == 'scattered') | 
-                                              (FW15_invasion_normal['nb_improved'] == 0)], 
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init') &
+                                         ((FW15_invasion_normal['restoration_type'] == 'scattered') | 
+                                          (FW15_invasion_normal['nb_improved'] == 0))], 
              y = 'nb_invaders_initial_pop', hue = 'patch', x = 'nb_improved', scale = 0.5, 
              palette = palette_colors, linestyles = '--', ax = ax, errorbar = None)
 plt.setp(ax.lines, zorder=100) # to have the pointplot on top
 plt.setp(ax.collections, zorder=100)
 
 ax.legend(bbox_to_anchor = [1,1])
+
+
+sb.pointplot(data =  FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], y = 'nb_invaders_initial_pop', 
+             hue = 'restoration_type', x = 'nb_improved', scale = 0.5, 
+             palette = palette_colors)
+
+
 
 FW15_invasion_normal['nb_extinct_initial_pop'] = np.nan_to_num(FW15_invasion_normal['nb_extinct_initial_pop'], nan = -1)
 
@@ -639,6 +688,25 @@ plt.setp(ax.collections, zorder=100)
 ax.legend(bbox_to_anchor = [1,1])
 
 
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], 
+             y = 'Mfcl_local', 
+             hue = 'restoration_type', 
+             x = 'nb_improved', 
+             scale = 0.5, 
+             palette = palette_colors)
+
+
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], 
+             y = 'Mfcl_local', 
+             hue = 'sim', 
+             x = 'nb_improved', 
+             scale = 0.5, 
+             palette = palette_colors)
+
+
+
+
+
 
 ## mean body mass
 ax = sb.stripplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init') & 
@@ -659,6 +727,20 @@ plt.setp(ax.lines, zorder=100) # to have the pointplot on top
 plt.setp(ax.collections, zorder=100)
 
 ax.legend(bbox_to_anchor = [1,1])
+
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], 
+             y = 'MeanBodyMass_local', 
+             hue = 'sim', 
+             x = 'nb_improved', 
+             scale = 0.5, 
+             palette = palette_colors)
+
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], 
+             y = 'MeanBodyMass_local', 
+             hue = 'restoration_type', 
+             x = 'nb_improved', 
+             scale = 0.5, 
+             palette = palette_colors)
 
 
 ## nb_top
@@ -704,6 +786,30 @@ plt.setp(ax.collections, zorder=100)
 
 ax.legend(bbox_to_anchor = [1,1])
 
+
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], 
+             y = 'nb_top', 
+             hue = 'restoration_type', 
+             x = 'nb_improved', 
+             scale = 0.5, 
+             palette = palette_colors)
+
+
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], 
+             y = 'nb_plants', 
+             hue = 'sim', 
+             x = 'nb_improved', 
+             scale = 0.5, 
+             palette = palette_colors)
+
+sb.pointplot(data = FW15_invasion_normal[(FW15_invasion_normal['stage'] != 'init')], 
+             y = 'nb_plants', 
+             hue = 'landscape_seed', 
+             x = 'nb_improved', 
+             scale = 0.5, 
+             palette = palette_colors)
+
+
 # %%% Change in species composition
 s = 8
 
@@ -739,23 +845,27 @@ plt.savefig('D:/TheseSwansea/SFT/Figures/CommunityCompo-beforeInvasion.png', dpi
 # %%% Difference inside outside
 
 fig, ([ax1, ax2]) = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(6, 6))
-sb.boxplot(data = FW15_invasion_normal, y = 'MeanTL_local', x = 'stage', ax = ax1)
+sb.boxplot(data = FW15_invasion_normal[FW15_invasion_normal['restoration_type'] != 'scattered'], y = 'MeanTL_local', x = 'stage', ax = ax1)
 ax1.tick_params(axis='x', rotation=45)
 ax1.set_title('Before/after')
 
 ## showing the mean trophic level inside and outside higher quality patches
-sb.boxplot(data = FW15_invasion_normal[FW15_invasion_normal['stage'] == 'restored'], y = 'MeanTL_local', x = 'deltaR', ax = ax2)
+sb.boxplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] != 'scattered') & 
+                                       (FW15_invasion_normal['stage'] == 'restored')], y = 'MeanTL_local', x = 'deltaR', ax = ax2)
 ax2.set_title('inside/outside')
 ax2.tick_params(axis='x', rotation=45)
 
 
 ## mfcl
 fig, ([ax1, ax2]) = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(6, 6))
-sb.boxplot(data = FW15_invasion_normal, y = 'Mfcl_local', x = 'stage', ax = ax1)
+sb.boxplot(data = FW15_invasion_normal[FW15_invasion_normal['restoration_type'] != 'scattered'], 
+           y = 'Mfcl_local', x = 'stage', ax = ax1)
 ax1.tick_params(axis='x', rotation=45)
 ax1.set_title('Before/after')
 
 ## showing the mean trophic level inside and outside higher quality patches
-sb.boxplot(data = FW15_invasion_normal[FW15_invasion_normal['stage'] == 'restored'], y = 'Mfcl_local', x = 'deltaR', ax = ax2)
+sb.boxplot(data = FW15_invasion_normal[(FW15_invasion_normal['restoration_type'] != 'scattered') & 
+                                       (FW15_invasion_normal['stage'] == 'restored')], 
+           y = 'Mfcl_local', x = 'deltaR', ax = ax2)
 ax2.set_title('inside/outside')
 ax2.tick_params(axis='x', rotation=45)

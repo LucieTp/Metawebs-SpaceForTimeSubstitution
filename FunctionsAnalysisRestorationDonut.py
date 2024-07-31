@@ -148,7 +148,7 @@ def create_landscape(P, extent, radius_max, nb_center, seed):
 
 
 
-def get_distance(coords, extent):
+def get_distance_donut(coords, extent):
     
     '''
     Calculate euclidian distance between patches whose coordinates are 
@@ -189,6 +189,42 @@ def get_distance(coords, extent):
     return(dist)
 
 
+def get_distance(coords):
+    
+    '''
+    Calculate euclidian distance between patches whose coordinates are 
+    recorded in coords (should have an 'x' and 'y' column with coordinates).
+    
+    Returns a PxP matrix for all possible pairwise distances.
+    
+    '''
+    
+    P = coords.shape[0]
+    dist = np.zeros((P,P))
+    for p1 in range(P): 
+        for p2 in range(P):
+            dist[p1,p2] = ((coords['x'].iloc[p2] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[p2] - coords['y'].iloc[p1])**2)**(1/2)
+    
+    return(dist)
+
+
+def get_euclidian_distance_toPatch(coords, patch):
+    
+    '''
+    Calculate euclidian distance between patches whose coordinates are 
+    recorded in coords (should have an 'x' and 'y' column with coordinates).
+    
+    Returns a PxP matrix for all possible pairwise distances.
+    
+    '''
+    
+    P = coords.shape[0]
+    dist = np.zeros((P))
+    for p1 in range(P): 
+        dist[p1] = ((coords['x'].iloc[patch] - coords['x'].iloc[p1])**2 + (coords['y'].iloc[patch] - coords['y'].iloc[p1])**2)**(1/2)
+    
+    return(dist)
+
 
 
 def summarise_pop_dynamics(list_files, nb_patches, initial_files, extinction_threshold = 1e-8): ## coords = DataFrame with one 'Patch' col with patch IDs, and coordinates under 'x' and 'y' cols
@@ -210,9 +246,8 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files, extinction_thr
         if '.npy' in f:
             sol_disturbed = np.load(f, allow_pickle=True).item()
         elif ".pkl" in f:
-            with open(f, 'rb') as file: 
-                sol_disturbed = pickle.load(file)  
-            file.close()
+            sol_disturbed = pd.read_pickle(f)  
+            
             
         if 'CONTROL' in f:
             restoration_type = 'None' ## whether high quality patches are clustered or not
@@ -241,9 +276,8 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files, extinction_thr
         if '.npy' in initial_file:
             sol_init = np.load(initial_file, allow_pickle=True).item()
         elif ".pkl" in initial_file:
-            with open(initial_file, 'rb') as file: 
-                sol_init = pickle.load(file)  
-            file.close()
+            sol_init = pd.read_pickle(initial_file)  
+            
 
         FW_new = sol_init['FW_new'] ## subset food web (this goes with sp_ID_)
         Stot_new = int(sol_init['y'].shape[1]/nb_patches) 
@@ -275,6 +309,19 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files, extinction_thr
         # FW_new['invaders'] = np.isin(FW_new['y0'], mean_biomasses)
  
         patch_improved = np.where(sol_disturbed['deltaR'] > 0.5)[0]
+        nb_improved = len(patch_improved)
+        
+        if nb_improved > 0:
+            dist_improved = np.zeros((nb_improved, nb_patches))
+            for patch_index in range(nb_improved):
+                patch = patch_improved[patch_index]
+                dist_improved[patch_index,] = get_euclidian_distance_toPatch(coords, patch)
+            dist_improved = np.min(dist_improved, axis = 0)
+        else:
+            dist_improved = np.repeat(np.nan, nb_patches)
+        
+        patch_invaded = np.where(sol_disturbed['FW_new']['invaders'].any(axis = 1))[0]
+        dist_invasion = get_euclidian_distance_toPatch(coords, patch_invaded)
         
         deltaR = sol_disturbed['deltaR'] # patch qualities
         ratio = np.min(deltaR)/np.max(deltaR) # quality ratio 
@@ -286,9 +333,6 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files, extinction_thr
         else:
             scenario_type='heterogeneous'
         
-        
-
-
         
         # Bf1 = np.zeros(shape = (nb_patches,Stot_new)) # post-disturbance pop biomasses
         
@@ -358,6 +402,10 @@ def summarise_pop_dynamics(list_files, nb_patches, initial_files, extinction_thr
                                                  'restoration_type':restoration_type, ## whether high quality patches are clustered or not
                                                  'restored_patches_seed':restored_patches_seed, # seed used to generate the random patches to restore 
                                                  'landscape_seed':landscape_seed, # seed used to generate the landscape
+                                                 
+                                                 'dist_improved':dist_improved,
+                                                 'dist_invasion':dist_invasion,
+                                                     
 
                                                  'S_regional':S_regional,
                                                  'S_local':len(surviving_sp), 'C_local': np.sum(local_FW),
@@ -494,9 +542,8 @@ def summarise_initial_pop_dynamics(list_files, nb_patches, extinction_threshold 
         if '.npy' in f:
             sol_disturbed = np.load(f, allow_pickle=True).item()
         elif ".pkl" in f:
-            with open(f, 'rb') as file: 
-                sol_disturbed = pickle.load(file)  
-            file.close()
+            sol_disturbed = pd.read_pickle(f)  
+            
             
         pattern = r'Dynamics_seed(\d+)' 
         match = re.search(pattern, f) 
